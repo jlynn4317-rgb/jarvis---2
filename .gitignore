@@ -1,0 +1,8 @@
+node_modules/
+.env*
+.next/
+dist/
+.vercel
+env-local
+env-local.txt
+google-cloud-sdk/
