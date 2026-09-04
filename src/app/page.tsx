@@ -20,6 +20,22 @@ type SavedCampaign = CampaignResult & {
   createdAt: string;
 };
 
+type SpeechRecognitionResultEvent = {
+  results: { 0: { transcript: string } }[];
+};
+
+type SpeechRecognitionInstance = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start: () => void;
+  onresult: ((event: SpeechRecognitionResultEvent) => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
+
 const LOCAL_ACTIVITY_KEY = "jarvis-activity";
 const LOCAL_CAMPAIGNS_KEY = "jarvis-campaigns";
 
@@ -82,6 +98,7 @@ export default function Home() {
   const [integrationStatus, setIntegrationStatus] = useState<Record<string, boolean>>({});
   const [activity, setActivity] = useState<ActivityItem[]>(initialActivity);
   const [savedCampaigns, setSavedCampaigns] = useState<SavedCampaign[]>([]);
+  const [listening, setListening] = useState(false);
 
   useEffect(() => {
     const loadStatus = async () => {
@@ -201,6 +218,29 @@ export default function Home() {
     window.setTimeout(() => setCopied(false), 1600);
   };
 
+  const startVoiceInput = () => {
+    const speechWindow = window as typeof window & {
+      SpeechRecognition?: SpeechRecognitionConstructor;
+      webkitSpeechRecognition?: SpeechRecognitionConstructor;
+    };
+    const SpeechRecognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setActivity((current) => [[new Date().toLocaleTimeString("en-GB", { hour12: false }), "Voice", "Speech input is not supported by this browser.", "info"], ...current].slice(0, 5) as ActivityItem[]);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = "en-US";
+    recognition.onresult = (event) => setTitle(event.results[0][0].transcript.trim());
+    recognition.onend = () => setListening(false);
+    recognition.onerror = () => setListening(false);
+    setListening(true);
+    recognition.start();
+  };
+
   return (
     <main className="app-shell">
       <aside className="sidebar">
@@ -242,6 +282,7 @@ export default function Home() {
           <div className="crumb"><span>JARVIS</span><i>/</i> Command center</div>
           <div className="top-actions">
             <button className="icon-button" aria-label="Search">S</button>
+            <button className="icon-button" aria-label={listening ? "Listening" : "Start voice input"} onClick={startVoiceInput}>{listening ? "..." : "M"}</button>
             <button className="icon-button" aria-label="Notifications">N<em /></button>
             <div className="live-pill"><span className="status-dot" /> {jarvisStatus?.status ?? "SYSTEMS NOMINAL"}</div>
           </div>
