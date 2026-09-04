@@ -12,7 +12,6 @@ export type JarvisRuntimeState = {
   supabase: boolean;
   openai: boolean;
   resend: boolean;
-  tiktok: boolean;
 };
 
 export const engineCatalog: JarvisEngine[] = [
@@ -25,12 +24,14 @@ export const engineCatalog: JarvisEngine[] = [
 
 const placeholderValue = (value?: string) => !value || value.includes("your_") || value.includes("your-project") || value === "";
 
+const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
+
 export const getRuntimeStatus = (): JarvisRuntimeState => ({
   gemini: Boolean(process.env.GEMINI_API_KEY) && !placeholderValue(process.env.GEMINI_API_KEY),
-  supabase: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL) && Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY) && !placeholderValue(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL),
+  supabase: Boolean(supabaseUrl) && Boolean(supabaseKey) && !placeholderValue(supabaseUrl) && !placeholderValue(supabaseKey),
   openai: Boolean(process.env.OPENAI_API_KEY) && !placeholderValue(process.env.OPENAI_API_KEY),
   resend: Boolean(process.env.RESEND_API_KEY) && !placeholderValue(process.env.RESEND_API_KEY),
-  tiktok: Boolean(process.env.TIKTOK_ADS_LINK) && !placeholderValue(process.env.TIKTOK_ADS_LINK),
 });
 
 export const buildJarvisStatus = () => {
@@ -48,7 +49,7 @@ export const buildJarvisStatus = () => {
   };
 };
 
-export const createCampaignBrief = ({ title, asin, affiliateTag }: { title?: string; asin?: string; affiliateTag?: string }) => {
+export const createCampaignBrief = ({ title, asin, affiliateTag, editorExclusions }: { title?: string; asin?: string; affiliateTag?: string; editorExclusions?: string[] }) => {
   const cleanAsin = (asin || "").trim();
   const tag = affiliateTag || "gblabs20-20";
 
@@ -57,6 +58,7 @@ export const createCampaignBrief = ({ title, asin, affiliateTag }: { title?: str
     title: title || "Untitled campaign",
     asin: cleanAsin,
     affiliateTag: tag,
+    editorExclusions: editorExclusions?.filter(Boolean) ?? [],
     objective: "Launch a conversion-focused affiliate campaign",
     strategy: [
       "Validate offer strength and intent fit",

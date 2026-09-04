@@ -40,13 +40,16 @@ const getDemoCampaign = (title: string, cleanAsin: string, affiliateUrl: string)
   asin: cleanAsin,
 });
 
-const buildPrompt = (title: string, cleanAsin: string, affiliateUrl: string) => `
+const buildPrompt = (title: string, cleanAsin: string, affiliateUrl: string, editorExclusions: string[] = []) => `
   You are a direct-response affiliate marketing strategist.
   Create conversion-focused social and email content for this product.
 
   Product: ${title || "Unknown Product"}
   ASIN: ${cleanAsin}
   Affiliate URL: ${affiliateUrl}
+  Excluded editors or tools: ${editorExclusions.length > 0 ? editorExclusions.join(", ") : "None"}
+
+  Do not suggest workflows, templates, or copy that depend on excluded editors or tools. Keep the strategy platform-neutral and focused on conversion.
 
   Return valid JSON only:
   {
@@ -57,7 +60,7 @@ const buildPrompt = (title: string, cleanAsin: string, affiliateUrl: string) => 
   }
 `;
 
-const generateWithOpenAI = async (title: string, cleanAsin: string, affiliateUrl: string) => {
+const generateWithOpenAI = async (title: string, cleanAsin: string, affiliateUrl: string, editorExclusions: string[] = []) => {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!isConfiguredEnvValue(apiKey)) {
     return null;
@@ -81,7 +84,7 @@ const generateWithOpenAI = async (title: string, cleanAsin: string, affiliateUrl
         },
         {
           role: "user",
-          content: buildPrompt(title, cleanAsin, affiliateUrl),
+          content: buildPrompt(title, cleanAsin, affiliateUrl, editorExclusions),
         },
       ],
     }),
@@ -97,7 +100,7 @@ const generateWithOpenAI = async (title: string, cleanAsin: string, affiliateUrl
   return JSON.parse(content);
 };
 
-const generateWithGemini = async (title: string, cleanAsin: string, affiliateUrl: string) => {
+const generateWithGemini = async (title: string, cleanAsin: string, affiliateUrl: string, editorExclusions: string[] = []) => {
   const ai = getGeminiClient();
   if (!ai) {
     return null;
@@ -105,7 +108,7 @@ const generateWithGemini = async (title: string, cleanAsin: string, affiliateUrl
 
   const response = await ai.models.generateContent({
     model: "gemini-2.0-flash",
-    contents: buildPrompt(title, cleanAsin, affiliateUrl),
+    contents: buildPrompt(title, cleanAsin, affiliateUrl, editorExclusions),
   });
 
   const text = typeof response?.text === "string" ? response.text : String(response ?? "");
@@ -115,12 +118,16 @@ const generateWithGemini = async (title: string, cleanAsin: string, affiliateUrl
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { asin, title, affiliateTag = "gblabs20-20" } = body ?? {};
+    const { asin, title, affiliateTag = "gblabs20-20", editorExclusions = [] } = body ?? {};
     const cleanAsin = getCleanAsin(String(asin || ""));
 
     if (!cleanAsin) {
       return NextResponse.json({ error: "Missing valid Amazon ASIN." }, { status: 400 });
     }
+
+    const normalizedEditorExclusions = Array.isArray(editorExclusions)
+      ? editorExclusions.filter((item: unknown) => typeof item === "string" && item.trim()).map((item: string) => item.trim())
+      : [];
 
     const affiliateUrl = `https://www.amazon.com/dp/${cleanAsin}?tag=${affiliateTag}`;
     const productTitle = String(title || "Product");
@@ -130,7 +137,7 @@ export async function POST(req: NextRequest) {
     let message = "Gemini and OpenAI are not configured. Falling back to demo output.";
 
     try {
-      campaign = await generateWithOpenAI(productTitle, cleanAsin, affiliateUrl);
+      campaign = await generateWithOpenAI(productTitle, cleanAsin, affiliateUrl, normalizedEditorExclusions);
       if (campaign) {
         generatedBy = "openai";
         message = "Campaign generated using OpenAI.";
@@ -141,7 +148,7 @@ export async function POST(req: NextRequest) {
 
     if (!campaign) {
       try {
-        campaign = await generateWithGemini(productTitle, cleanAsin, affiliateUrl);
+        campaign = await generateWithGemini(productTitle, cleanAsin, affiliateUrl, normalizedEditorExclusions);
         if (campaign) {
           generatedBy = "gemini";
           message = "Campaign generated using Gemini.";

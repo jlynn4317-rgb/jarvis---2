@@ -11,7 +11,6 @@ export async function GET() {
       supabase: runtime.supabase,
       openai: runtime.openai,
       resend: runtime.resend,
-      tiktok: runtime.tiktok,
     },
   });
 }

@@ -20,22 +20,6 @@ type SavedCampaign = CampaignResult & {
   createdAt: string;
 };
 
-type SpeechRecognitionResultEvent = {
-  results: { 0: { transcript: string } }[];
-};
-
-type SpeechRecognitionInstance = {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  start: () => void;
-  onresult: ((event: SpeechRecognitionResultEvent) => void) | null;
-  onend: (() => void) | null;
-  onerror: (() => void) | null;
-};
-
-type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
-
 const LOCAL_ACTIVITY_KEY = "jarvis-activity";
 const LOCAL_CAMPAIGNS_KEY = "jarvis-campaigns";
 
@@ -51,10 +35,10 @@ const readLocal = <T,>(key: string, fallback: T): T => {
 };
 
 const engines = [
-  { name: "Attraction", detail: "Smart hooks, Pinterest, Reels", icon: "A", state: "LIVE", color: "lime", metric: "18 drafts" },
-  { name: "Affiliate", detail: "ASIN cleanup + tracking", icon: "L", state: "LIVE", color: "blue", metric: "42 products" },
-  { name: "Email", detail: "Auto-responders + triggers", icon: "E", state: "READY", color: "orange", metric: "3 sequences" },
-  { name: "Copywriting", detail: "PAS + AIDA layer", icon: "C", state: "LIVE", color: "pink", metric: "96% quality" },
+  { name: "Attraction", detail: "Hooks, pins, and short-form campaign copy", icon: "A", state: "READY", color: "lime", metric: "Campaign route" },
+  { name: "Affiliate", detail: "ASIN cleanup and tagged Amazon links", icon: "L", state: "LIVE", color: "blue", metric: "URL generation" },
+  { name: "Email", detail: "Resend delivery route for campaign sequences", icon: "E", state: "READY", color: "orange", metric: "API route" },
+  { name: "Copywriting", detail: "OpenAI and Gemini generation route", icon: "C", state: "READY", color: "pink", metric: "Provider route" },
 ];
 
 const workflow = [
@@ -68,7 +52,6 @@ const workflow = [
 const integrations = [
   { name: "Gemini", status: "READY", value: "AI copy generation" },
   { name: "Supabase", status: "READY", value: "Auth + database + RLS" },
-  { name: "TikTok Ads", status: "LINKED", value: "Campaign account connection" },
   { name: "Resend", status: "PENDING", value: "Email delivery infrastructure" },
 ];
 
@@ -86,11 +69,26 @@ const normalizeAsin = (raw: string) => {
   return match?.[1] ?? value.replace(/[^A-Z0-9]/gi, "").slice(0, 10);
 };
 
+const DEFAULT_EDITOR_EXCLUSIONS = ["Notion", "Google Docs", "Canva"];
+
+const parseEditorExclusions = (value: string) =>
+  Array.from(
+    new Set(
+      value
+        .split(/[\n,]+/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((item) => item.replace(/\s+/g, " "))
+        .filter((item) => item.length > 0)
+    )
+  );
+
 export default function Home() {
   const [autonomous, setAutonomous] = useState(true);
   const [asin, setAsin] = useState("B09V3KXJPB");
   const [title, setTitle] = useState("Ember Temperature Control Smart Mug");
   const [tag, setTag] = useState("gblabs20-20");
+  const [editorExclusions, setEditorExclusions] = useState<string[]>(DEFAULT_EDITOR_EXCLUSIONS);
   const [running, setRunning] = useState(false);
   const [copied, setCopied] = useState(false);
   const [campaignResult, setCampaignResult] = useState<CampaignResult | null>(null);
@@ -98,7 +96,6 @@ export default function Home() {
   const [integrationStatus, setIntegrationStatus] = useState<Record<string, boolean>>({});
   const [activity, setActivity] = useState<ActivityItem[]>(initialActivity);
   const [savedCampaigns, setSavedCampaigns] = useState<SavedCampaign[]>([]);
-  const [listening, setListening] = useState(false);
 
   useEffect(() => {
     const loadStatus = async () => {
@@ -135,6 +132,21 @@ export default function Home() {
     return clean ? `https://www.amazon.com/dp/${clean}?tag=${tag}` : "";
   }, [asin, tag]);
 
+  const editorExclusionsText = editorExclusions.join(", ");
+  const liveIntegrationCount = Object.values(integrationStatus).filter(Boolean).length;
+  const activityEventCount = activity.length;
+  const readiness = jarvisStatus?.readiness ?? "0/5";
+  const connectionItems = [
+    ["Gemini", integrationStatus.gemini],
+    ["Supabase", integrationStatus.supabase],
+    ["OpenAI", integrationStatus.openai],
+    ["Resend", integrationStatus.resend],
+  ] as const;
+
+  const updateEditorExclusions = (value: string) => {
+    setEditorExclusions(parseEditorExclusions(value));
+  };
+
   const runCampaign = async () => {
     const cleanAsin = normalizeAsin(asin);
     if (!cleanAsin) return;
@@ -146,7 +158,7 @@ export default function Home() {
       const briefResponse = await fetch("/api/campaign-brief", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ asin: cleanAsin, title, affiliateTag: tag }),
+        body: JSON.stringify({ asin: cleanAsin, title, affiliateTag: tag, editorExclusions }),
       });
 
       const briefData = await briefResponse.json();
@@ -157,7 +169,7 @@ export default function Home() {
       const response = await fetch("/api/generate-campaign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ asin: cleanAsin, title, affiliateTag: tag, briefId: briefData.brief?.briefId }),
+        body: JSON.stringify({ asin: cleanAsin, title, affiliateTag: tag, briefId: briefData.brief?.briefId, editorExclusions }),
       });
 
       const data = await response.json();
@@ -181,7 +193,7 @@ export default function Home() {
       setActivity((current) => [[timestamp, "Campaign", `Campaign generated for ${result.title}`, "success"], ...current].slice(0, 5) as ActivityItem[]);
       setSavedCampaigns((current) => [{ ...result, asin: cleanAsin, createdAt: new Date().toISOString() }, ...current].slice(0, 50));
 
-      await Promise.all([
+      const [persistResponse, telemetryResponse] = await Promise.all([
         fetch("/api/campaign/persist", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -193,6 +205,16 @@ export default function Home() {
           body: JSON.stringify({ source: "campaign", eventName: "campaign_generated", payload: { asin: cleanAsin, title: result.title, generatedBy: result.generatedBy } }),
         }),
       ]);
+
+      const persistData = await persistResponse.json();
+      const telemetryData = await telemetryResponse.json();
+      const storageMessage = persistData.ok ? "Campaign persisted to Supabase." : "Campaign saved locally; Supabase persistence needs attention.";
+      const telemetryMessage = telemetryData.ok ? "Telemetry recorded." : "Telemetry connection needs attention.";
+      setActivity((current) => [
+        [timestamp, "Supabase", storageMessage, persistData.ok ? "success" : "info"],
+        [timestamp, "Telemetry", telemetryMessage, telemetryData.ok ? "success" : "info"],
+        ...current,
+      ].slice(0, 5) as ActivityItem[]);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Unknown error";
       const result: CampaignResult = {
@@ -216,29 +238,6 @@ export default function Home() {
     await navigator.clipboard.writeText(value);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
-  };
-
-  const startVoiceInput = () => {
-    const speechWindow = window as typeof window & {
-      SpeechRecognition?: SpeechRecognitionConstructor;
-      webkitSpeechRecognition?: SpeechRecognitionConstructor;
-    };
-    const SpeechRecognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      setActivity((current) => [[new Date().toLocaleTimeString("en-GB", { hour12: false }), "Voice", "Speech input is not supported by this browser.", "info"], ...current].slice(0, 5) as ActivityItem[]);
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = "en-US";
-    recognition.onresult = (event) => setTitle(event.results[0][0].transcript.trim());
-    recognition.onend = () => setListening(false);
-    recognition.onerror = () => setListening(false);
-    setListening(true);
-    recognition.start();
   };
 
   return (
@@ -282,7 +281,6 @@ export default function Home() {
           <div className="crumb"><span>JARVIS</span><i>/</i> Command center</div>
           <div className="top-actions">
             <button className="icon-button" aria-label="Search">S</button>
-            <button className="icon-button" aria-label={listening ? "Listening" : "Start voice input"} onClick={startVoiceInput}>{listening ? "..." : "M"}</button>
             <button className="icon-button" aria-label="Notifications">N<em /></button>
             <div className="live-pill"><span className="status-dot" /> {jarvisStatus?.status ?? "SYSTEMS NOMINAL"}</div>
           </div>
@@ -297,29 +295,38 @@ export default function Home() {
           <button className="primary-button" onClick={() => document.getElementById("studio")?.scrollIntoView({ behavior: "smooth" })}><span>+</span> New campaign</button>
         </div>
 
+        <div className="connection-rail" aria-label="Live connection status">
+          <span className="connection-title">CONNECTED STACK</span>
+          {connectionItems.map(([name, connected]) => (
+            <span className={`connection-item ${connected ? "connected" : "pending"}`} key={name}>
+              <i /> {name} <b>{connected ? "LIVE" : "WAITING"}</b>
+            </span>
+          ))}
+        </div>
+
         <section className="metrics-grid" aria-label="Performance metrics">
           <div className="metric-card">
-            <span>ATTRIBUTED REVENUE <i>i</i></span>
-            <strong>$8,492.60</strong>
-            <small className="up">+18.4% <b>vs last 30 days</b></small>
+            <span>SAVED CAMPAIGNS <i>i</i></span>
+            <strong>{savedCampaigns.length}</strong>
+            <small className="up">LOCAL <b>on this device</b></small>
             <div className="sparkline cyan"><span /><span /><span /><span /><span /><span /><span /></div>
           </div>
           <div className="metric-card">
-            <span>LINK CLICKS <i>i</i></span>
-            <strong>12,847</strong>
-            <small className="up">+24.8% <b>vs last 30 days</b></small>
+            <span>LIVE INTEGRATIONS <i>i</i></span>
+            <strong>{liveIntegrationCount}/{Object.keys(integrationStatus).length || 5}</strong>
+            <small className="up">RUNTIME <b>connection status</b></small>
             <div className="sparkline lime"><span /><span /><span /><span /><span /><span /><span /></div>
           </div>
           <div className="metric-card">
-            <span>EMAIL OPEN RATE <i>i</i></span>
-            <strong>42.8%</strong>
-            <small className="down">-2.1% <b>vs last 30 days</b></small>
+            <span>TELEMETRY EVENTS <i>i</i></span>
+            <strong>{activityEventCount}</strong>
+            <small className="up">LIVE FEED <b>latest activity</b></small>
             <div className="sparkline coral"><span /><span /><span /><span /><span /><span /><span /></div>
           </div>
           <div className="metric-card">
-            <span>ACTIVE LEADS <i>i</i></span>
-            <strong>1,284</strong>
-            <small className="up">+9.6% <b>vs last 30 days</b></small>
+            <span>SYSTEM READINESS <i>i</i></span>
+            <strong>{readiness}</strong>
+            <small className="up">STATUS <b>{jarvisStatus?.status ?? "CHECKING"}</b></small>
             <div className="sparkline blue"><span /><span /><span /><span /><span /><span /><span /></div>
           </div>
         </section>
@@ -395,11 +402,8 @@ export default function Home() {
 
             <div className="form-row">
               <label>
-                Affiliate tag
-                <div className="input-with-badge">
-                  <input value={tag} onChange={(event) => setTag(event.target.value)} />
-                  <span>LOCKED</span>
-                </div>
+                Editor exclusions
+                <input value={editorExclusionsText} onChange={(event) => updateEditorExclusions(event.target.value)} placeholder="Notion, Google Docs, Canva" />
               </label>
               <label>
                 Copy framework
@@ -407,6 +411,34 @@ export default function Home() {
                   <option>PAS + AIDA</option>
                   <option>PAS</option>
                   <option>AIDA</option>
+                </select>
+              </label>
+            </div>
+
+            {editorExclusions.length > 0 && (
+              <div className="editor-chip-row" aria-label="Excluded editors">
+                {editorExclusions.map((editor) => (
+                  <button key={editor} type="button" className="editor-chip" onClick={() => setEditorExclusions((current) => current.filter((item) => item !== editor))}>
+                    {editor} ×
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="form-row">
+              <label>
+                Affiliate tag
+                <div className="input-with-badge">
+                  <input value={tag} onChange={(event) => setTag(event.target.value)} />
+                  <span>LOCKED</span>
+                </div>
+              </label>
+              <label>
+                Campaign mode
+                <select defaultValue="AUTONOMOUS">
+                  <option>AUTONOMOUS</option>
+                  <option>MANUAL REVIEW</option>
+                  <option>SAFE MODE</option>
                 </select>
               </label>
             </div>
@@ -448,8 +480,8 @@ export default function Home() {
             </div>
 
             <div className="activity-list">
-              {activity.map(([time, agent, message, type]) => (
-                <div className="activity-item" key={time}>
+              {activity.map(([time, agent, message, type], index) => (
+                <div className="activity-item" key={`${time}-${agent}-${index}`}>
                   <span className={`activity-dot ${type}`} />
                   <div>
                     <p><strong>{agent}</strong> {message}</p>
