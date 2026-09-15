@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { buildAffiliateUrl, affiliateNetworks } from "@/lib/networks";
 
 type CampaignResult = {
   affiliateUrl: string;
@@ -19,6 +20,20 @@ type SavedCampaign = CampaignResult & {
   asin: string;
   createdAt: string;
 };
+
+type Variant = {
+  tone: string;
+  ok: boolean;
+  generatedBy?: string;
+  variant?: { id: string; headline: string; body: string };
+  trackingSlug?: string;
+  landingUrl?: string | null;
+  error?: string;
+};
+
+const CHANNELS = ["pinterest", "tiktok", "x"] as const;
+
+type ChannelPostState = { postId: string; status: "pending_approval" | "approved" };
 
 const LOCAL_ACTIVITY_KEY = "jarvis-activity";
 const LOCAL_CAMPAIGNS_KEY = "jarvis-campaigns";
@@ -94,8 +109,16 @@ export default function Home() {
   const [campaignResult, setCampaignResult] = useState<CampaignResult | null>(null);
   const [jarvisStatus, setJarvisStatus] = useState<{ status?: string; readiness?: string; runtime?: Record<string, boolean> } | null>(null);
   const [integrationStatus, setIntegrationStatus] = useState<Record<string, boolean>>({});
-  const [activity, setActivity] = useState<ActivityItem[]>(initialActivity);
-  const [savedCampaigns, setSavedCampaigns] = useState<SavedCampaign[]>([]);
+  const [activity, setActivity] = useState<ActivityItem[]>(() => readLocal(LOCAL_ACTIVITY_KEY, initialActivity));
+  const [savedCampaigns, setSavedCampaigns] = useState<SavedCampaign[]>(() => readLocal(LOCAL_CAMPAIGNS_KEY, []));
+  const [remoteCounts, setRemoteCounts] = useState<{ campaigns: number; telemetry: number; leads: number; socialPosts: number } | null>(null);
+  const [niche, setNiche] = useState("general");
+  const [network, setNetwork] = useState("amazon");
+  const [destination, setDestination] = useState("");
+  const [currentCampaignId, setCurrentCampaignId] = useState<string | null>(null);
+  const [variants, setVariants] = useState<Variant[]>([]);
+  const [generatingVariants, setGeneratingVariants] = useState(false);
+  const [channelPosts, setChannelPosts] = useState<Record<string, Record<string, ChannelPostState>>>({});
 
   useEffect(() => {
     const loadStatus = async () => {
@@ -115,8 +138,19 @@ export default function Home() {
       .then((data) => setIntegrationStatus(data.integrations ?? {}))
       .catch((error) => console.warn("Unable to load integration status", error));
 
-    setActivity(readLocal(LOCAL_ACTIVITY_KEY, initialActivity));
-    setSavedCampaigns(readLocal(LOCAL_CAMPAIGNS_KEY, []));
+    fetch("/api/dashboard")
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.ok) {
+          setRemoteCounts({
+            campaigns: data.counts?.campaigns ?? 0,
+            telemetry: data.counts?.telemetry ?? 0,
+            leads: data.counts?.leads ?? 0,
+            socialPosts: data.counts?.socialPosts ?? 0,
+          });
+        }
+      })
+      .catch((error) => console.warn("Unable to load dashboard data", error));
   }, []);
 
   useEffect(() => {
@@ -128,9 +162,8 @@ export default function Home() {
   }, [savedCampaigns]);
 
   const affiliateUrl = useMemo(() => {
-    const clean = normalizeAsin(asin);
-    return clean ? `https://www.amazon.com/dp/${clean}?tag=${tag}` : "";
-  }, [asin, tag]);
+    return buildAffiliateUrl({ network, asin: normalizeAsin(asin), destination, affiliateTag: tag });
+  }, [asin, tag, network, destination]);
 
   const editorExclusionsText = editorExclusions.join(", ");
   const liveIntegrationCount = Object.values(integrationStatus).filter(Boolean).length;
@@ -153,6 +186,9 @@ export default function Home() {
 
     setRunning(true);
     setCampaignResult(null);
+    setVariants([]);
+    setCurrentCampaignId(null);
+    setChannelPosts({});
 
     try {
       const briefResponse = await fetch("/api/campaign-brief", {
@@ -169,7 +205,7 @@ export default function Home() {
       const response = await fetch("/api/generate-campaign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ asin: cleanAsin, title, affiliateTag: tag, briefId: briefData.brief?.briefId, editorExclusions }),
+        body: JSON.stringify({ asin: cleanAsin, title, affiliateTag: tag, briefId: briefData.brief?.briefId, editorExclusions, niche, network, destination }),
       });
 
       const data = await response.json();
@@ -208,6 +244,7 @@ export default function Home() {
 
       const persistData = await persistResponse.json();
       const telemetryData = await telemetryResponse.json();
+      if (persistData.ok && persistData.campaign?.id) setCurrentCampaignId(persistData.campaign.id);
       const storageMessage = persistData.ok ? "Campaign persisted to Supabase." : "Campaign saved locally; Supabase persistence needs attention.";
       const telemetryMessage = telemetryData.ok ? "Telemetry recorded." : "Telemetry connection needs attention.";
       setActivity((current) => [
@@ -218,7 +255,7 @@ export default function Home() {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Unknown error";
       const result: CampaignResult = {
-        affiliateUrl: `https://www.amazon.com/dp/${cleanAsin}?tag=${tag}`,
+        affiliateUrl: buildAffiliateUrl({ network, asin: cleanAsin, destination, affiliateTag: tag }),
         title,
         generatedBy: "demo",
         message,
@@ -238,6 +275,72 @@ export default function Home() {
     await navigator.clipboard.writeText(value);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
+  };
+
+  const generateVariants = async () => {
+    if (!currentCampaignId || generatingVariants) return;
+    setGeneratingVariants(true);
+
+    try {
+      const response = await fetch("/api/campaign/variants", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaignId: currentCampaignId, title, asin: normalizeAsin(asin), affiliateTag: tag, network, destination, niche }),
+      });
+      const data = await response.json();
+      if (data.ok) setVariants(data.variants ?? []);
+    } catch (error) {
+      console.warn("Unable to generate variants", error);
+    } finally {
+      setGeneratingVariants(false);
+    }
+  };
+
+  const queueToChannel = async (variant: Variant, channel: string) => {
+    if (!currentCampaignId || !variant.variant) return;
+    const variantId = variant.variant.id;
+
+    try {
+      const response = await fetch("/api/social/queue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          campaignId: currentCampaignId,
+          channels: [channel],
+          copyVariantId: variantId,
+          content: { headline: variant.variant.headline, body: variant.variant.body },
+        }),
+      });
+      const data = await response.json();
+      const postId = data?.posts?.[0]?.post?.id;
+      if (!postId) return;
+
+      setChannelPosts((current) => ({
+        ...current,
+        [variantId]: { ...(current[variantId] ?? {}), [channel]: { postId, status: "pending_approval" } },
+      }));
+    } catch (error) {
+      console.warn("Unable to queue channel post", error);
+    }
+  };
+
+  const approveChannel = async (variantId: string, channel: string) => {
+    const postId = channelPosts[variantId]?.[channel]?.postId;
+    if (!postId) return;
+
+    try {
+      await fetch("/api/social/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId }),
+      });
+      setChannelPosts((current) => ({
+        ...current,
+        [variantId]: { ...(current[variantId] ?? {}), [channel]: { postId, status: "approved" } },
+      }));
+    } catch (error) {
+      console.warn("Unable to approve channel post", error);
+    }
   };
 
   return (
@@ -289,7 +392,7 @@ export default function Home() {
         <div className="page-head">
           <div>
             <p className="eyebrow">THURSDAY, AUGUST 28, 2026 <span>-</span> 09:44 UTC</p>
-            <h1>Good morning, Gary.</h1>
+            <h1>Good morning, Jeff.</h1>
             <p className="subhead">Your ecosystem is running clean. Here is the pulse.</p>
           </div>
           <button className="primary-button" onClick={() => document.getElementById("studio")?.scrollIntoView({ behavior: "smooth" })}><span>+</span> New campaign</button>
@@ -307,8 +410,8 @@ export default function Home() {
         <section className="metrics-grid" aria-label="Performance metrics">
           <div className="metric-card">
             <span>SAVED CAMPAIGNS <i>i</i></span>
-            <strong>{savedCampaigns.length}</strong>
-            <small className="up">LOCAL <b>on this device</b></small>
+            <strong>{remoteCounts?.campaigns ?? savedCampaigns.length}</strong>
+            <small className="up">{remoteCounts ? "DATABASE" : "LOCAL"} <b>{remoteCounts ? "from Supabase" : "on this device"}</b></small>
             <div className="sparkline cyan"><span /><span /><span /><span /><span /><span /><span /></div>
           </div>
           <div className="metric-card">
@@ -319,8 +422,8 @@ export default function Home() {
           </div>
           <div className="metric-card">
             <span>TELEMETRY EVENTS <i>i</i></span>
-            <strong>{activityEventCount}</strong>
-            <small className="up">LIVE FEED <b>latest activity</b></small>
+            <strong>{remoteCounts?.telemetry ?? activityEventCount}</strong>
+            <small className="up">{remoteCounts ? "DATABASE" : "LIVE FEED"} <b>{remoteCounts ? "from Supabase" : "latest activity"}</b></small>
             <div className="sparkline coral"><span /><span /><span /><span /><span /><span /><span /></div>
           </div>
           <div className="metric-card">
@@ -328,6 +431,18 @@ export default function Home() {
             <strong>{readiness}</strong>
             <small className="up">STATUS <b>{jarvisStatus?.status ?? "CHECKING"}</b></small>
             <div className="sparkline blue"><span /><span /><span /><span /><span /><span /><span /></div>
+          </div>
+          <div className="metric-card">
+            <span>LEADS CAPTURED <i>i</i></span>
+            <strong>{remoteCounts?.leads ?? 0}</strong>
+            <small className="up">EMAIL LIST <b>owned audience</b></small>
+            <div className="sparkline lime"><span /><span /><span /><span /><span /><span /><span /></div>
+          </div>
+          <div className="metric-card">
+            <span>CHANNEL QUEUE <i>i</i></span>
+            <strong>{remoteCounts?.socialPosts ?? 0}</strong>
+            <small className="up">DISTRIBUTION <b>queued + posted</b></small>
+            <div className="sparkline coral"><span /><span /><span /><span /><span /><span /><span /></div>
           </div>
         </section>
 
@@ -391,12 +506,31 @@ export default function Home() {
 
             <div className="form-row">
               <label>
-                Amazon ASIN or product URL
-                <input value={asin} onChange={(event) => setAsin(event.target.value)} placeholder="B09V3KXJPB" />
+                Affiliate network
+                <select value={network} onChange={(event) => setNetwork(event.target.value)}>
+                  {affiliateNetworks.map((item) => (
+                    <option key={item.id} value={item.id}>{item.name}</option>
+                  ))}
+                </select>
               </label>
+              <label>
+                {affiliateNetworks.find((item) => item.id === network)?.destinationLabel ?? "Destination"}
+                {network === "amazon" ? (
+                  <input value={asin} onChange={(event) => setAsin(event.target.value)} placeholder="B09V3KXJPB" />
+                ) : (
+                  <input value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="Vendor ID, merchant ID, or URL" />
+                )}
+              </label>
+            </div>
+
+            <div className="form-row">
               <label>
                 Product title
                 <input value={title} onChange={(event) => setTitle(event.target.value)} />
+              </label>
+              <label>
+                Niche / audience focus
+                <input value={niche} onChange={(event) => setNiche(event.target.value)} placeholder="general, home fitness, pet care..." />
               </label>
             </div>
 
@@ -455,7 +589,7 @@ export default function Home() {
 
             {campaignResult && (
               <div className="campaign-preview">
-                <span>Generated by {campaignResult.generatedBy === "gemini" ? "Gemini" : "demo fallback"}</span>
+                <span>Generated by {campaignResult.generatedBy === "gemini" ? "Gemini" : campaignResult.generatedBy === "openai" ? "OpenAI" : "demo fallback"}</span>
                 <h3>{campaignResult.pinTitle || campaignResult.title}</h3>
                 <p>{campaignResult.pinDescription || campaignResult.message}</p>
                 {campaignResult.shortVideoHook && <p className="hook">{campaignResult.shortVideoHook}</p>}
@@ -465,9 +599,68 @@ export default function Home() {
               </div>
             )}
 
-            <button className="run-button" onClick={runCampaign} disabled={running || !normalizeAsin(asin)}>
+            <button className="run-button" onClick={runCampaign} disabled={running || (network === "amazon" ? !normalizeAsin(asin) : !destination)}>
               {running ? "JARVIS IS ROUTING THE BRIEF..." : "RUN CAMPAIGN PIPELINE  ->"}
             </button>
+
+            {currentCampaignId && (
+              <section className="variants-panel" aria-label="A/B variants and distribution">
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">OPTIMIZATION LOOP</p>
+                    <h2>A/B variants + distribution</h2>
+                  </div>
+                  <button className="text-button" onClick={generateVariants} disabled={generatingVariants}>
+                    {generatingVariants ? "Generating..." : "Generate 3 variants"}
+                  </button>
+                </div>
+
+                {variants.length === 0 ? (
+                  <p className="panel-description">Generate tone-tested variants, each with its own tracking link, then queue them to channels below. A winner is auto-selected from conversions after 24h.</p>
+                ) : (
+                  <div className="variant-list">
+                    {variants.map((item) => (
+                      <div className="variant-card" key={item.tone}>
+                        <div className="variant-tone">{item.tone}</div>
+                        {item.ok && item.variant ? (
+                          <>
+                            <strong>{item.variant.headline}</strong>
+                            <p>{item.variant.body}</p>
+                            {item.landingUrl && <code className="variant-link">{item.landingUrl}</code>}
+                            <div className="channel-row">
+                              {CHANNELS.map((channel) => {
+                                const state = channelPosts[item.variant!.id]?.[channel];
+                                if (!state) {
+                                  return (
+                                    <button key={channel} type="button" className="channel-chip" onClick={() => queueToChannel(item, channel)}>
+                                      Queue to {channel}
+                                    </button>
+                                  );
+                                }
+                                if (state.status === "pending_approval") {
+                                  return (
+                                    <button key={channel} type="button" className="channel-chip pending" onClick={() => approveChannel(item.variant!.id, channel)}>
+                                      {channel}: approve &amp; post
+                                    </button>
+                                  );
+                                }
+                                return (
+                                  <button key={channel} type="button" className="channel-chip queued" disabled>
+                                    {channel} approved
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </>
+                        ) : (
+                          <p className="variant-error">{item.error || "Variant generation failed."}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
           </section>
 
           <section className="activity-panel" id="telemetry">
