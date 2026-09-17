@@ -1,0 +1,26 @@
+name: Worker cron
+
+# Vercel's Hobby plan only allows daily cron jobs. This runs the worker on a
+# tighter schedule for free via GitHub Actions instead, hitting the same
+# /api/worker/run endpoint that Vercel's own (daily) cron also calls.
+#
+# Requires two repo secrets (Settings -> Secrets and variables -> Actions):
+#   WORKER_URL   - the deployed site's base URL, e.g. https://jarvis-2.vercel.app
+#   CRON_SECRET  - must match the CRON_SECRET env var set in Vercel
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  run-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger worker run
+        run: |
+          curl -sf -X GET "${WORKER_URL}/api/worker/run" \
+            -H "Authorization: Bearer ${CRON_SECRET}"
+        env:
+          WORKER_URL: ${{ secrets.WORKER_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}

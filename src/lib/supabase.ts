@@ -123,3 +123,112 @@ export const logTelemetry = async ({
 
   return { ok: true, mode: "live" as const, record: data };
 };
+
+export const getDashboardData = async () => {
+  const client = getSupabaseServiceClient();
+  if (!client) return { ok: false as const, mode: "demo" as const, campaigns: [], telemetry: [], offers: [], leads: [], socialPosts: [] };
+
+  const [campaigns, telemetry, offers, leads, socialPosts] = await Promise.all([
+    client.from("campaigns").select("id, title, asin, affiliate_tag, status, niche, brief, created_at, updated_at").order("created_at", { ascending: false }).limit(50),
+    client.from("telemetry").select("id, source, event_name, payload, created_at").order("created_at", { ascending: false }).limit(50),
+    client.from("offers").select("id, name, advertiser, category, network, payout, status, created_at").order("created_at", { ascending: false }).limit(50),
+    client.from("leads").select("id, email, campaign_id, source, created_at").order("created_at", { ascending: false }).limit(50),
+    client.from("social_posts").select("id, campaign_id, channel, status, created_at").order("created_at", { ascending: false }).limit(50),
+  ]);
+
+  const error = campaigns.error || telemetry.error || offers.error || leads.error || socialPosts.error;
+  if (error) return { ok: false as const, mode: "demo" as const, message: error.message, campaigns: [], telemetry: [], offers: [], leads: [], socialPosts: [] };
+  return {
+    ok: true as const,
+    mode: "live" as const,
+    campaigns: campaigns.data ?? [],
+    telemetry: telemetry.data ?? [],
+    offers: offers.data ?? [],
+    leads: leads.data ?? [],
+    socialPosts: socialPosts.data ?? [],
+  };
+};
+
+export const captureLead = async ({
+  email,
+  campaignId,
+  trackingLinkId,
+  source,
+}: {
+  email: string;
+  campaignId?: string;
+  trackingLinkId?: string;
+  source?: string;
+}) => {
+  const client = getSupabaseServiceClient();
+  if (!client || !email) return { ok: false, mode: "demo" as const, message: "Supabase not configured." };
+
+  const { data, error } = await client
+    .from("leads")
+    .upsert(
+      { email, campaign_id: campaignId ?? null, tracking_link_id: trackingLinkId ?? null, source: source ?? "landing_page" },
+      { onConflict: "email,campaign_id" }
+    )
+    .select("id, email")
+    .single();
+
+  if (error) return { ok: false, mode: "demo" as const, message: error.message };
+  return { ok: true, mode: "live" as const, lead: data };
+};
+
+export const enqueueTask = async ({ type, payload, runAt }: { type: string; payload?: Record<string, unknown>; runAt?: string }) => {
+  const client = getSupabaseServiceClient();
+  if (!client) return { ok: false, mode: "demo" as const, message: "Supabase not configured." };
+
+  const { data, error } = await client
+    .from("tasks")
+    .insert({ type, payload: payload ?? {}, run_at: runAt ?? new Date().toISOString() })
+    .select("id, type, status")
+    .single();
+
+  if (error) return { ok: false, mode: "demo" as const, message: error.message };
+  return { ok: true, mode: "live" as const, task: data };
+};
+
+export const claimQueuedTasks = async (limit = 10) => {
+  const client = getSupabaseServiceClient();
+  if (!client) return [];
+
+  const { data } = await client
+    .from("tasks")
+    .select("*")
+    .eq("status", "queued")
+    .lte("run_at", new Date().toISOString())
+    .order("run_at", { ascending: true })
+    .limit(limit);
+
+  return data ?? [];
+};
+
+export const finishTask = async (id: string, status: "done" | "failed", attempts: number) => {
+  const client = getSupabaseServiceClient();
+  if (!client) return;
+  await client.from("tasks").update({ status, attempts }).eq("id", id);
+};
+
+export const getTrackingLinkBySlug = async (slug: string) => {
+  const client = getSupabaseServiceClient();
+  if (!client) return null;
+
+  const { data: link } = await client.from("tracking_links").select("*").eq("slug", slug).maybeSingle();
+  if (!link) return null;
+
+  const [{ data: campaign }, { data: variant }] = await Promise.all([
+    link.campaign_id ? client.from("campaigns").select("*").eq("id", link.campaign_id).maybeSingle() : Promise.resolve({ data: null }),
+    link.copy_variant_id ? client.from("copy_variants").select("*").eq("id", link.copy_variant_id).maybeSingle() : Promise.resolve({ data: null }),
+  ]);
+
+  return { link, campaign, variant };
+};
+
+export const incrementTrackingLinkClicks = async (id: string) => {
+  const client = getSupabaseServiceClient();
+  if (!client) return;
+  const { data } = await client.from("tracking_links").select("clicks").eq("id", id).maybeSingle();
+  await client.from("tracking_links").update({ clicks: (data?.clicks ?? 0) + 1 }).eq("id", id);
+};

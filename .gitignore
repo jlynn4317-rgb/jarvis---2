@@ -1,8 +1,12 @@
 node_modules/
 .env*
+!.env.example
 .next/
 dist/
 .vercel
 env-local
 env-local.txt
 google-cloud-sdk/
+*.tsbuildinfo
+
+.vercel
