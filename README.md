@@ -1,14 +1,16 @@
 # JARVIS
 
-A JARVIS-style affiliate growth operating system built with Next.js.
+JARVIS is a Next.js dashboard for planning and running affiliate-marketing campaigns. It brings campaign copy generation, affiliate link creation, lead capture, and activity monitoring into one workspace.
 
-## Included phases
+## What it does
 
-1. Campaign generation and affiliate link creation
-2. JARVIS runtime status monitoring
-3. Campaign brief orchestration
-4. Supabase client and schema foundation
-5. Auth/session, telemetry, email queue, and persistence endpoints
+- Generates campaign copy and variants with configured AI providers.
+- Builds tracked links for Amazon, ClickBank, ShareASale, Impact, and generic destinations.
+- Creates campaign landing pages that capture leads and track clicks.
+- Supports social post approval, email sequences, and campaign data persistence.
+- Reports runtime and integration status from the dashboard.
+
+The app integrates with services such as Gemini/OpenAI, Supabase, and Resend; live functionality depends on the corresponding environment variables and service setup.
 
 ## Local usage
 
