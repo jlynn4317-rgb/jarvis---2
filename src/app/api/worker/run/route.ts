@@ -36,12 +36,13 @@ const sendWelcomeEmail = async (payload: { email?: string; campaignId?: string; 
 
   const resend = new Resend(apiKey);
   const result = await resend.emails.send({
-    from: "JARVIS <onboarding@resend.dev>",
+    from: process.env.EMAIL_FROM || "JARVIS <onboarding@resend.dev>",
     to: [payload.email],
     subject: "You're on the list",
     html: `<p>${hook}</p>${ctaUrl ? `<p><a href="${ctaUrl}">Check it out</a></p>` : ""}`,
   });
 
+  if (result.error) return { ok: false, error: `Resend: ${result.error.message}` };
   return { ok: true, id: result.data?.id ?? null };
 };
 
