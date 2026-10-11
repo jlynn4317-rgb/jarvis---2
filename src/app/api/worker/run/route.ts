@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { getSupabaseServiceClient, claimQueuedTasks, finishTask, enqueueTask } from "@/lib/supabase";
 import { publishToChannel, type Channel } from "@/lib/channels";
+import { buildUnsubscribeUrl } from "@/lib/unsubscribe";
 
 const isConfigured = (value: string | undefined) => Boolean(value && !value.includes("your_") && value.trim());
+
+const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 // Amazon's Associates Operating Agreement prohibits Special Links (tagged affiliate
 // URLs) inside commercial email. This builds the email around a link to our own
@@ -29,17 +32,47 @@ const sendWelcomeEmail = async (payload: { email?: string; campaignId?: string; 
     if (link?.slug) ctaUrl = `${process.env.NEXT_PUBLIC_SITE_URL || ""}/go/${link.slug}`;
   }
 
+  const email = payload.email.trim().toLowerCase();
+
+  if (client) {
+    const { data: optedOut, error: lookupError } = await client.from("leads").select("id").eq("email", email).not("unsubscribed_at", "is", null).limit(1);
+    if (lookupError) return { ok: false, error: `Couldn't check unsubscribe status: ${lookupError.message}` };
+    if (optedOut && optedOut.length > 0) return { ok: true, skipped: "unsubscribed" };
+  }
+
   const apiKey = process.env.RESEND_API_KEY;
   if (!isConfigured(apiKey)) {
     return { ok: true, status: "manual_pending", message: "Resend not configured; welcome email skipped in demo mode." };
   }
 
+  // Commercial email needs an unsubscribe link and a physical mailing address. Refuse to
+  // send without them rather than sending something non-compliant.
+  const address = (process.env.MAILING_ADDRESS || "").trim();
+  const unsubscribePage = buildUnsubscribeUrl(email, "page");
+  const unsubscribeApi = buildUnsubscribeUrl(email, "api");
+  if (!address || !unsubscribePage || !unsubscribeApi) {
+    return { ok: false, error: "Email footer not configured: set MAILING_ADDRESS, UNSUBSCRIBE_SECRET and NEXT_PUBLIC_SITE_URL." };
+  }
+
+  const siteHost = new URL(process.env.NEXT_PUBLIC_SITE_URL as string).host;
+  const html =
+    `<p>${escapeHtml(hook)}</p>` +
+    (ctaUrl ? `<p><a href="${ctaUrl}">Check it out</a></p>` : "") +
+    `<hr style="border:none;border-top:1px solid #ddd;margin:24px 0">` +
+    `<p style="font-size:12px;color:#666;line-height:1.5">You're receiving this because you signed up at ${escapeHtml(siteHost)}.<br>` +
+    `${escapeHtml(address)}<br><a href="${unsubscribePage}">Unsubscribe</a></p>`;
+
   const resend = new Resend(apiKey);
   const result = await resend.emails.send({
     from: process.env.EMAIL_FROM || "JARVIS <onboarding@resend.dev>",
-    to: [payload.email],
+    to: [email],
+    replyTo: process.env.EMAIL_REPLY_TO || undefined,
     subject: "You're on the list",
-    html: `<p>${hook}</p>${ctaUrl ? `<p><a href="${ctaUrl}">Check it out</a></p>` : ""}`,
+    html,
+    headers: {
+      "List-Unsubscribe": `<${unsubscribeApi}>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    },
   });
 
   if (result.error) return { ok: false, error: `Resend: ${result.error.message}` };
