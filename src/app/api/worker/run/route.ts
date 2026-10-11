@@ -165,9 +165,11 @@ const processTasks = async () => {
   return results;
 };
 
+// The proxy leaves this route open so cron can reach it, so it must guard itself on
+// every method. With no CRON_SECRET set it only runs outside production (local dev).
 const isAuthorizedCron = (req: NextRequest) => {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return true;
+  if (!secret) return process.env.NODE_ENV !== "production";
   return req.headers.get("authorization") === `Bearer ${secret}`;
 };
 
@@ -178,6 +180,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if (!isAuthorizedCron(req)) return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
   const body = await req.json().catch(() => ({}));
 
   if (body?.enqueueCheckWinner && body?.campaignId) {

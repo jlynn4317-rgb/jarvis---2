@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { buildAffiliateUrl, affiliateNetworks } from "@/lib/networks";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/utils/supabase/client";
 
 type CampaignResult = {
   affiliateUrl: string;
@@ -99,6 +101,7 @@ const parseEditorExclusions = (value: string) =>
   );
 
 export default function Home() {
+  const router = useRouter();
   const [autonomous, setAutonomous] = useState(true);
   const [asin, setAsin] = useState("B09V3KXJPB");
   const [title, setTitle] = useState("Ember Temperature Control Smart Mug");
@@ -386,6 +389,16 @@ export default function Home() {
             <button className="icon-button" aria-label="Search">S</button>
             <button className="icon-button" aria-label="Notifications">N<em /></button>
             <div className="live-pill"><span className="status-dot" /> {jarvisStatus?.status ?? "SYSTEMS NOMINAL"}</div>
+            <button
+              className="signout-button"
+              onClick={async () => {
+                await createClient().auth.signOut();
+                router.replace("/login");
+                router.refresh();
+              }}
+            >
+              Sign out
+            </button>
           </div>
         </header>
 

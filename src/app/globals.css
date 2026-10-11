@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --ink: #050608;
   --panel: #101216;
   --line: #28303a;
@@ -743,6 +743,9 @@ button { cursor: pointer; }
   text-decoration: underline;
 }
 .go-disclosure { color: #5c6672; font-size: 11px; margin: 22px 0 0; }
+.login-error { color: var(--coral); font-size: 13px; margin: 0; text-align: left; }
+.signout-button { background: none; border: 1px solid #28313b; color: var(--muted); font-size: 12px; padding: 6px 12px; }
+.signout-button:hover { color: var(--paper); }
 
 .variants-panel { border-top: 1px solid var(--line); margin-top: 22px; padding-top: 20px; }
 .variant-list { display: flex; flex-direction: column; gap: 14px; }
