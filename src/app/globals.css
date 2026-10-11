@@ -755,6 +755,8 @@ button { cursor: pointer; }
 .variant-card p { color: var(--muted); font-size: 13px; margin: 0 0 10px; }
 .variant-link { background: #0c0e11; border-radius: 6px; color: var(--lime); display: inline-block; font-size: 11px; margin-bottom: 10px; padding: 4px 8px; word-break: break-all; }
 .variant-error { color: var(--coral); font-size: 13px; }
+.variant-link-row { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.variant-link-row .variant-link { margin-bottom: 0; text-decoration: underline; }
 .channel-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .channel-chip {
   background: #1c1f26;

@@ -4,6 +4,8 @@ import CaptureForm from "./capture-form";
 
 export const dynamic = "force-dynamic";
 
+export const metadata = { title: "Featured pick" };
+
 export default async function GoPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const result = await getTrackingLinkBySlug(slug);

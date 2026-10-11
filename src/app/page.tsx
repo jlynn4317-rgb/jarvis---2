@@ -109,6 +109,7 @@ export default function Home() {
   const [editorExclusions, setEditorExclusions] = useState<string[]>(DEFAULT_EDITOR_EXCLUSIONS);
   const [running, setRunning] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedLandingUrl, setCopiedLandingUrl] = useState<string | null>(null);
   const [campaignResult, setCampaignResult] = useState<CampaignResult | null>(null);
   const [jarvisStatus, setJarvisStatus] = useState<{ status?: string; readiness?: string; runtime?: Record<string, boolean> } | null>(null);
   const [integrationStatus, setIntegrationStatus] = useState<Record<string, boolean>>({});
@@ -639,7 +640,24 @@ export default function Home() {
                           <>
                             <strong>{item.variant.headline}</strong>
                             <p>{item.variant.body}</p>
-                            {item.landingUrl && <code className="variant-link">{item.landingUrl}</code>}
+                            {item.landingUrl && (
+                              <div className="variant-link-row">
+                                <a className="variant-link" href={item.landingUrl} target="_blank" rel="noreferrer">
+                                  {`${window.location.origin}${item.landingUrl}`}
+                                </a>
+                                <button
+                                  type="button"
+                                  className="channel-chip"
+                                  onClick={async () => {
+                                    await navigator.clipboard.writeText(`${window.location.origin}${item.landingUrl}`);
+                                    setCopiedLandingUrl(item.landingUrl ?? null);
+                                    window.setTimeout(() => setCopiedLandingUrl(null), 1600);
+                                  }}
+                                >
+                                  {copiedLandingUrl === item.landingUrl ? "Copied" : "Copy link"}
+                                </button>
+                              </div>
+                            )}
                             <div className="channel-row">
                               {CHANNELS.map((channel) => {
                                 const state = channelPosts[item.variant!.id]?.[channel];
