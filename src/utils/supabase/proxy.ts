@@ -6,17 +6,24 @@ const supabaseKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUB
 
 export const updateSession = async (request: NextRequest) => {
   let response = NextResponse.next({ request });
-  const supabase = createServerClient(supabaseUrl, supabaseKey, {
-    cookies: {
-      getAll: () => request.cookies.getAll(),
-      setAll: (cookiesToSet) => {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
-        cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
-      },
-    },
-  });
 
-  await supabase.auth.getUser();
-  return response;
+  if (!supabaseUrl || !supabaseKey) return { response, user: null };
+
+  try {
+    const supabase = createServerClient(supabaseUrl, supabaseKey, {
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll: (cookiesToSet) => {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+        },
+      },
+    });
+
+    const { data } = await supabase.auth.getUser();
+    return { response, user: data.user };
+  } catch {
+    return { response, user: null };
+  }
 };

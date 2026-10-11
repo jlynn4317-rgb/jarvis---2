@@ -81,6 +81,7 @@ export const storeCampaign = async ({
   const { data, error } = await client.from("campaigns").insert({
     user_id: userId ?? null,
     title,
+    name: title,
     asin: asin ?? null,
     affiliate_tag: affiliateTag ?? "gblabs20-20",
     status: status ?? "draft",
