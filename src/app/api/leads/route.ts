@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { captureLead, enqueueTask, logTelemetry } from "@/lib/supabase";
 
 export async function POST(req: NextRequest) {
@@ -21,6 +21,15 @@ export async function POST(req: NextRequest) {
         enqueueTask({ type: "send_welcome_email", payload: { email, campaignId, trackingLinkId } }),
         logTelemetry({ source: "leads", eventName: "lead_captured", payload: { campaignId, source } }),
       ]);
+
+      // Send the welcome email now instead of waiting for the next timer tick. The timer
+      // stays as a safety net for anything this call misses.
+      after(async () => {
+        const secret = process.env.CRON_SECRET;
+        const base = (process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/$/, "");
+        if (!secret || !base) return;
+        await fetch(`${base}/api/worker/run`, { headers: { Authorization: `Bearer ${secret}` } }).catch(() => {});
+      });
     }
 
     return NextResponse.json({ ok: result.ok, mode: result.mode, message: result.ok ? "Lead captured." : result.message });
