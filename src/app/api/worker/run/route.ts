@@ -66,6 +66,7 @@ const sendWelcomeEmail = async (payload: { email?: string; campaignId?: string; 
   const result = await resend.emails.send({
     from: process.env.EMAIL_FROM || "JARVIS <onboarding@resend.dev>",
     to: [email],
+    replyTo: process.env.EMAIL_REPLY_TO || undefined,
     subject: "You're on the list",
     html,
     headers: {
