@@ -203,7 +203,16 @@ export const claimQueuedTasks = async (limit = 10) => {
     .order("run_at", { ascending: true })
     .limit(limit);
 
-  return data ?? [];
+  // Several workers can run at once (cron plus the one fired after a signup). Only the
+  // worker whose conditional update actually flips queued -> running owns the task, so
+  // nothing is processed (or emailed) twice.
+  const claimed = [];
+  for (const task of data ?? []) {
+    const { data: won } = await client.from("tasks").update({ status: "running" }).eq("id", task.id).eq("status", "queued").select("id");
+    if (won && won.length > 0) claimed.push(task);
+  }
+
+  return claimed;
 };
 
 export const finishTask = async (id: string, status: "done" | "failed", attempts: number) => {
