@@ -744,6 +744,7 @@ button { cursor: pointer; }
 }
 .go-disclosure { color: #5c6672; font-size: 11px; margin: 22px 0 0; }
 .login-error { color: var(--coral); font-size: 13px; margin: 0; text-align: left; }
+.capture-form .hp-field { height: 0; left: -9999px; opacity: 0; padding: 0; pointer-events: none; position: absolute; width: 0; }
 .signout-button { background: none; border: 1px solid #28313b; color: var(--muted); font-size: 12px; padding: 6px 12px; }
 .signout-button:hover { color: var(--paper); }
 

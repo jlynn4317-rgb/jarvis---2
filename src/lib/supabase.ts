@@ -150,16 +150,33 @@ export const getDashboardData = async () => {
   };
 };
 
+export const getLeadSignals = async (email: string, ipHash: string) => {
+  const client = getSupabaseServiceClient();
+  if (!client) return null;
+
+  const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const [known, fromIp, total] = await Promise.all([
+    client.from("leads").select("id", { count: "exact", head: true }).eq("email", email),
+    client.from("leads").select("id", { count: "exact", head: true }).eq("ip_hash", ipHash).gte("created_at", since),
+    client.from("leads").select("id", { count: "exact", head: true }).gte("created_at", since),
+  ]);
+
+  if (known.error || fromIp.error || total.error) return null;
+  return { alreadyKnown: (known.count ?? 0) > 0, recentFromIp: fromIp.count ?? 0, recentTotal: total.count ?? 0 };
+};
+
 export const captureLead = async ({
   email,
   campaignId,
   trackingLinkId,
   source,
+  ipHash,
 }: {
   email: string;
   campaignId?: string;
   trackingLinkId?: string;
   source?: string;
+  ipHash?: string;
 }) => {
   const client = getSupabaseServiceClient();
   if (!client || !email) return { ok: false, mode: "demo" as const, message: "Supabase not configured." };
@@ -167,7 +184,7 @@ export const captureLead = async ({
   const { data, error } = await client
     .from("leads")
     .upsert(
-      { email, campaign_id: campaignId ?? null, tracking_link_id: trackingLinkId ?? null, source: source ?? "landing_page" },
+      { email, campaign_id: campaignId ?? null, tracking_link_id: trackingLinkId ?? null, source: source ?? "landing_page", ip_hash: ipHash ?? null },
       { onConflict: "email,campaign_id" }
     )
     .select("id, email")

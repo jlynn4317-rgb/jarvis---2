@@ -12,6 +12,7 @@ export default function CaptureForm({
   destination: string;
 }) {
   const [email, setEmail] = useState("");
+  const [website, setWebsite] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const goToOffer = () => {
@@ -27,7 +28,7 @@ export default function CaptureForm({
       await fetch("/api/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, campaignId, trackingLinkId, source: "landing_page" }),
+        body: JSON.stringify({ email, hp: website, campaignId, trackingLinkId, source: "landing_page" }),
       });
     } catch {
       // Non-blocking: still route to the offer even if capture fails.
@@ -43,6 +44,16 @@ export default function CaptureForm({
           Email
           <input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" />
         </label>
+        <input
+          type="text"
+          name="contact_ref_hp"
+          className="hp-field"
+          tabIndex={-1}
+          autoComplete="off"
+          aria-hidden="true"
+          value={website}
+          onChange={(event) => setWebsite(event.target.value)}
+        />
         <button type="submit" disabled={submitting}>
           {submitting ? "Sending you there..." : "Get the deal + updates"}
         </button>
