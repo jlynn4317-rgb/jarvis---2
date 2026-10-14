@@ -744,6 +744,29 @@ button { cursor: pointer; }
 }
 .go-disclosure { color: #5c6672; font-size: 11px; margin: 22px 0 0; }
 .login-error { color: var(--coral); font-size: 13px; margin: 0; text-align: left; }
+
+.board-shell { margin: 0 auto; max-width: 1100px; padding: 28px 18px 60px; }
+.board-shell h1 { font-size: 30px; margin: 6px 0 4px; }
+.board-back a { color: var(--muted); font-size: 13px; text-decoration: none; }
+.board-back a:hover { color: var(--paper); }
+.board-sub { color: var(--muted); margin: 0 0 22px; }
+.board-stats { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 18px; }
+.board-stats div { background: #111318; border: 1px solid #28313b; border-radius: 12px; padding: 14px 16px; }
+.board-stats span { color: var(--muted); display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.board-stats strong { display: block; font-size: 26px; margin-top: 4px; }
+.board-next { background: rgba(183,255,56,.1); border: 1px solid rgba(183,255,56,.35); border-radius: 12px; margin: 0 0 18px; padding: 12px 16px; }
+.board-next span { color: var(--muted); }
+.board-empty { color: var(--muted); }
+.board-table-wrap { overflow-x: auto; }
+.board-table { border-collapse: collapse; min-width: 760px; width: 100%; }
+.board-table th { color: var(--muted); font-size: 11px; letter-spacing: .08em; padding: 10px 12px; text-align: left; text-transform: uppercase; white-space: nowrap; }
+.board-table td { border-top: 1px solid #1f262e; padding: 12px; vertical-align: middle; }
+.board-title { font-weight: 600; max-width: 280px; }
+.board-title em { background: var(--lime); border-radius: 6px; color: var(--ink); font-size: 10px; font-style: normal; font-weight: 700; margin-left: 8px; padding: 2px 6px; text-transform: uppercase; }
+.board-row-next td { background: rgba(183,255,56,.05); }
+.board-link-cell { align-items: center; display: flex; gap: 10px; white-space: nowrap; }
+.board-link-cell a { color: var(--cyan); }
+@media (max-width: 720px) { .board-stats { grid-template-columns: 1fr; } }
 .capture-form .hp-field { height: 0; left: -9999px; opacity: 0; padding: 0; pointer-events: none; position: absolute; width: 0; }
 .signout-button { background: none; border: 1px solid #28313b; color: var(--muted); font-size: 12px; padding: 6px 12px; }
 .signout-button:hover { color: var(--paper); }

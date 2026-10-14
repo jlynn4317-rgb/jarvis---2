@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { buildAffiliateUrl, affiliateNetworks } from "@/lib/networks";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 
@@ -365,6 +366,7 @@ export default function Home() {
         <nav className="nav-list" aria-label="Main navigation">
           <p className="nav-label">Command</p>
           <a className="nav-item active" href="#overview"><span className="nav-icon">[]</span> Overview <b>1</b></a>
+          <Link className="nav-item" href="/board"><span className="nav-icon">=</span> Link board</Link>
           <a className="nav-item" href="#campaigns"><span className="nav-icon">/</span> Campaigns <b>2</b></a>
           <a className="nav-item" href="#engines"><span className="nav-icon">o</span> Engines <b>3</b></a>
           <a className="nav-item" href="#settings"><span className="nav-icon">*</span> Integrations <b>4</b></a>
