@@ -9,6 +9,7 @@ export type BoardRow = {
   versions: number;
   lastPostedAt: string | null;
   waitingApproval: number;
+  hidden: boolean;
   bestSlug: string | null;
   createdAt: string;
 };
@@ -19,7 +20,8 @@ type LeadInput = { campaign_id: string | null };
 type PostInput = { campaign_id: string | null; status: string; posted_at: string | null };
 
 // One row per product with its clicks, signups and posting history, plus the product that
-// is next in line to be posted (never posted first, otherwise the longest ago).
+// is next in line to be posted (never posted first, otherwise the longest ago). Hidden
+// (paused) rows and rows without a product code are never suggested.
 export const buildBoard = (campaigns: CampaignInput[], links: LinkInput[], leads: LeadInput[], posts: PostInput[]) => {
   const rows: BoardRow[] = campaigns.map((campaign) => {
     const own = links.filter((link) => link.campaign_id === campaign.id);
@@ -38,13 +40,14 @@ export const buildBoard = (campaigns: CampaignInput[], links: LinkInput[], leads
       versions: own.filter((link) => link.copy_variant_id).length,
       lastPostedAt: posted.length ? posted[posted.length - 1] : null,
       waitingApproval: ownPosts.filter((post) => post.status === "pending_approval").length,
+      hidden: campaign.status === "paused",
       bestSlug: best?.slug ?? null,
       createdAt: campaign.created_at,
     };
   });
 
   const next = rows
-    .filter((row) => row.bestSlug)
+    .filter((row) => row.bestSlug && row.asin && !row.hidden)
     .sort((a, b) => {
       if (!a.lastPostedAt && !b.lastPostedAt) return a.createdAt.localeCompare(b.createdAt);
       if (!a.lastPostedAt) return -1;
