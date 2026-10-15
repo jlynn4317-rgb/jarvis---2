@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     const title = String(body?.title || "").trim().slice(0, 120);
     const asin = String(body?.asin || "").trim().toUpperCase();
     const keywords = String(body?.keywords || "").trim().slice(0, 80);
-    const niche = String(body?.niche || "coffee lovers").trim().slice(0, 60) || "general";
+    const niche = String(body?.niche || "").trim().slice(0, 60) || "general";
 
     if (title.length < 2 || (!/^[A-Z0-9]{10}$/.test(asin) && keywords.length < 2)) {
       return NextResponse.json({ ok: false, error: "Needs a name plus a product code or search words." }, { status: 400 });

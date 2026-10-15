@@ -20,6 +20,7 @@ const MAX_ENTRIES = 15;
 
 export default function AddForm() {
   const [text, setText] = useState("");
+  const [audience, setAudience] = useState("coffee and tea lovers");
   const [rows, setRows] = useState<Row[]>([]);
   const [checking, setChecking] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -65,7 +66,7 @@ export default function AddForm() {
         const response = await fetch("/api/campaign/add", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: row.title, asin: row.asin, keywords: row.keywords }),
+          body: JSON.stringify({ title: row.title, asin: row.asin, keywords: row.keywords, niche: audience }),
         });
         const data = await response.json();
         if (data.duplicate) patch(index, { state: "duplicate", message: "Already on your board." });
@@ -83,6 +84,10 @@ export default function AddForm() {
 
   return (
     <div className="add-form">
+      <label className="add-audience">
+        Who is this batch for?
+        <input className="add-title" value={audience} onChange={(event) => setAudience(event.target.value)} disabled={adding} placeholder="e.g. coffee lovers, gamers, new parents" />
+      </label>
       <textarea
         className="add-textarea"
         rows={8}
