@@ -764,6 +764,11 @@ button { cursor: pointer; }
 .board-title { font-weight: 600; max-width: 280px; }
 .board-title em { background: var(--lime); border-radius: 6px; color: var(--ink); font-size: 10px; font-style: normal; font-weight: 700; margin-left: 8px; padding: 2px 6px; text-transform: uppercase; }
 .board-row-next td { background: rgba(183,255,56,.05); }
+.add-form { display: flex; flex-direction: column; gap: 16px; }
+.add-textarea { background: #14161b; border: 1px solid var(--line); border-radius: 12px; color: var(--paper); font-family: inherit; font-size: 14px; padding: 14px; resize: vertical; width: 100%; }
+.add-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 12px; }
+.add-title { background: #14161b; border: 1px solid var(--line); border-radius: 8px; color: var(--paper); font-size: 14px; padding: 8px 10px; width: 100%; min-width: 220px; }
+.board-table small { color: var(--muted); }
 .board-row-hidden td { opacity: .45; }
 .board-hidden-toggle { margin: 0 0 12px; }
 .board-hidden-toggle a { color: var(--cyan); font-size: 13px; }

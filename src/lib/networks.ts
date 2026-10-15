@@ -1,4 +1,4 @@
-export type AffiliateNetwork = "amazon" | "clickbank" | "shareasale" | "impact" | "generic";
+export type AffiliateNetwork = "amazon" | "amazon_search" | "clickbank" | "shareasale" | "impact" | "generic";
 
 const cleanAsin = (raw: string) => {
   const value = raw.trim();
@@ -25,6 +25,10 @@ export const buildAffiliateUrl = ({
     case "amazon": {
       const clean = cleanAsin(asin || destination || "");
       return clean ? `https://www.amazon.com/dp/${clean}?tag=${tag}` : "";
+    }
+    case "amazon_search": {
+      const words = (destination || "").trim();
+      return words ? `https://www.amazon.com/s?k=${encodeURIComponent(words).replace(/%20/g, "+")}&tag=${tag}` : "";
     }
     case "clickbank": {
       const vendor = destination || "";
@@ -53,6 +57,7 @@ export const buildAffiliateUrl = ({
 
 export const affiliateNetworks: { id: AffiliateNetwork; name: string; destinationLabel: string }[] = [
   { id: "amazon", name: "Amazon Associates", destinationLabel: "ASIN or product URL" },
+  { id: "amazon_search", name: "Amazon search page", destinationLabel: "Search words" },
   { id: "clickbank", name: "ClickBank", destinationLabel: "Vendor ID" },
   { id: "shareasale", name: "ShareASale", destinationLabel: "Merchant ID" },
   { id: "impact", name: "Impact", destinationLabel: "Tracking URL" },

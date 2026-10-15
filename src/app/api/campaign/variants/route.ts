@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateCampaignCopy } from "@/lib/copy-providers";
 import { buildAffiliateUrl } from "@/lib/networks";
-import { getSupabaseServiceClient, enqueueTask } from "@/lib/supabase";
+import { getSupabaseServiceClient } from "@/lib/supabase";
+import { createVariants } from "@/lib/variants";
 
-const TONES = ["Urgent / scarcity-driven", "Playful / relatable", "Trustworthy / educational"];
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,43 +28,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Could not build an affiliate URL." }, { status: 400 });
     }
 
-    const variants = await Promise.all(
-      TONES.map(async (tone) => {
-        const { campaign, generatedBy } = await generateCampaignCopy(title, asin, { niche, tone });
-
-        const { data: variant, error: variantError } = await client
-          .from("copy_variants")
-          .insert({ campaign_id: campaignId, tone, headline: campaign.pinTitle, body: campaign.pinDescription })
-          .select()
-          .single();
-
-        if (variantError || !variant) return { tone, ok: false, error: variantError?.message };
-
-        const slug = `${campaignId.slice(0, 8)}-${variant.id.slice(0, 6)}`;
-        const { data: link, error: linkError } = await client
-          .from("tracking_links")
-          .insert({ slug, campaign_id: campaignId, destination: affiliateUrl, copy_variant_id: variant.id })
-          .select()
-          .single();
-
-        return {
-          tone,
-          ok: !linkError,
-          generatedBy,
-          variant,
-          trackingSlug: link?.slug,
-          landingUrl: link ? `/go/${link.slug}` : null,
-          error: linkError?.message,
-        };
-      })
-    );
-
-    await enqueueTask({
-      type: "check_variant_winner",
-      payload: { campaignId },
-      runAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    });
-
+    const variants = await createVariants(client, { campaignId, title, asin, affiliateUrl, niche });
     return NextResponse.json({ ok: true, campaignId, variants });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
