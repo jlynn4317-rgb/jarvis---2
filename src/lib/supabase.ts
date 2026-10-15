@@ -66,6 +66,7 @@ export const storeCampaign = async ({
   affiliateTag,
   status,
   brief,
+  niche,
 }: {
   userId?: string;
   title: string;
@@ -73,6 +74,7 @@ export const storeCampaign = async ({
   affiliateTag?: string;
   status?: string;
   brief?: Record<string, unknown>;
+  niche?: string;
 }) => {
   const client = getSupabaseServiceClient();
   if (!client || !title) {
@@ -87,6 +89,7 @@ export const storeCampaign = async ({
     affiliate_tag: affiliateTag ?? "gblabs20-20",
     status: status ?? "draft",
     brief: brief ?? {},
+    niche: niche ?? "general",
   }).select("id, title, status").single();
 
   if (error) {

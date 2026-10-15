@@ -21,7 +21,7 @@ type PostInput = { campaign_id: string | null; status: string; posted_at: string
 
 // One row per product with its clicks, signups and posting history, plus the product that
 // is next in line to be posted (never posted first, otherwise the longest ago). Hidden
-// (paused) rows and rows without a product code are never suggested.
+// (paused) rows and rows without a link are never suggested.
 export const buildBoard = (campaigns: CampaignInput[], links: LinkInput[], leads: LeadInput[], posts: PostInput[]) => {
   const rows: BoardRow[] = campaigns.map((campaign) => {
     const own = links.filter((link) => link.campaign_id === campaign.id);
@@ -47,7 +47,7 @@ export const buildBoard = (campaigns: CampaignInput[], links: LinkInput[], leads
   });
 
   const next = rows
-    .filter((row) => row.bestSlug && row.asin && !row.hidden)
+    .filter((row) => row.bestSlug && !row.hidden)
     .sort((a, b) => {
       if (!a.lastPostedAt && !b.lastPostedAt) return a.createdAt.localeCompare(b.createdAt);
       if (!a.lastPostedAt) return -1;

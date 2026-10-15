@@ -37,6 +37,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
       <p className="board-back"><Link href="/">&larr; Dashboard</Link></p>
       <h1>Link board</h1>
       <p className="board-sub">Every product you&apos;re promoting, and how each one is doing.</p>
+      <p><Link href="/board/add" className="channel-chip">+ Add products</Link></p>
 
       <section className="board-stats" aria-label="Totals">
         <div><span>Products</span><strong>{visible.length}</strong></div>
