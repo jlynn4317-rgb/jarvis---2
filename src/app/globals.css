@@ -764,6 +764,9 @@ button { cursor: pointer; }
 .board-title { font-weight: 600; max-width: 280px; }
 .board-title em { background: var(--lime); border-radius: 6px; color: var(--ink); font-size: 10px; font-style: normal; font-weight: 700; margin-left: 8px; padding: 2px 6px; text-transform: uppercase; }
 .board-row-next td { background: rgba(183,255,56,.05); }
+.board-row-hidden td { opacity: .45; }
+.board-hidden-toggle { margin: 0 0 12px; }
+.board-hidden-toggle a { color: var(--cyan); font-size: 13px; }
 .board-link-cell { align-items: center; display: flex; gap: 10px; white-space: nowrap; }
 .board-link-cell a { color: var(--cyan); }
 @media (max-width: 720px) { .board-stats { grid-template-columns: 1fr; } }

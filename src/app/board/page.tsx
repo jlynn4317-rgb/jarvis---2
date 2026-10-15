@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { getBoardData } from "@/lib/supabase";
 import CopyButton from "./copy-button";
+import HideButton from "./hide-button";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Link board" };
 
 const formatDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" }) : "Never");
 
-export default async function BoardPage() {
+export default async function BoardPage({ searchParams }: { searchParams: Promise<{ hidden?: string }> }) {
+  const { hidden } = await searchParams;
+  const showHidden = hidden === "1";
   const board = await getBoardData();
   const origin = (process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/$/, "");
 
@@ -22,8 +25,11 @@ export default async function BoardPage() {
   }
 
   const { rows, nextId } = board;
-  const totalClicks = rows.reduce((sum, row) => sum + row.clicks, 0);
-  const totalLeads = rows.reduce((sum, row) => sum + row.leads, 0);
+  const visible = rows.filter((row) => !row.hidden);
+  const hiddenCount = rows.length - visible.length;
+  const shown = showHidden ? rows : visible;
+  const totalClicks = visible.reduce((sum, row) => sum + row.clicks, 0);
+  const totalLeads = visible.reduce((sum, row) => sum + row.leads, 0);
   const next = rows.find((row) => row.id === nextId);
 
   return (
@@ -33,7 +39,7 @@ export default async function BoardPage() {
       <p className="board-sub">Every product you&apos;re promoting, and how each one is doing.</p>
 
       <section className="board-stats" aria-label="Totals">
-        <div><span>Products</span><strong>{rows.length}</strong></div>
+        <div><span>Products</span><strong>{visible.length}</strong></div>
         <div><span>Clicks</span><strong>{totalClicks}</strong></div>
         <div><span>Signups</span><strong>{totalLeads}</strong></div>
       </section>
@@ -44,7 +50,13 @@ export default async function BoardPage() {
         </p>
       )}
 
-      {rows.length === 0 ? (
+      {hiddenCount > 0 && (
+        <p className="board-hidden-toggle">
+          {showHidden ? <Link href="/board">Hide the {hiddenCount} hidden</Link> : <Link href="/board?hidden=1">Show {hiddenCount} hidden</Link>}
+        </p>
+      )}
+
+      {shown.length === 0 ? (
         <p className="board-empty">No products yet. Run a campaign from the dashboard and it will show up here.</p>
       ) : (
         <div className="board-table-wrap">
@@ -59,11 +71,12 @@ export default async function BoardPage() {
                 <th>Last posted</th>
                 <th>Needs approval</th>
                 <th>Link</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr key={row.id} className={row.id === nextId ? "board-row-next" : undefined}>
+              {shown.map((row) => (
+                <tr key={row.id} className={row.id === nextId ? "board-row-next" : row.hidden ? "board-row-hidden" : undefined}>
                   <td className="board-title">{row.title}{row.id === nextId && <em>next</em>}</td>
                   <td>{row.asin ?? "—"}</td>
                   <td>{row.clicks}</td>
@@ -81,6 +94,7 @@ export default async function BoardPage() {
                       "No link yet"
                     )}
                   </td>
+                  <td><HideButton id={row.id} hidden={row.hidden} /></td>
                 </tr>
               ))}
             </tbody>
