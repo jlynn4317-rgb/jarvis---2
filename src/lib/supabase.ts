@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { buildBoard } from "@/lib/board";
+import { buildGuide } from "@/lib/guide";
 
 const isPlaceholder = (value?: string) => !value || value.includes("your_") || value.includes("your-project") || value.includes("example") || value === "";
 
@@ -167,6 +168,19 @@ export const getBoardData = async () => {
   if (campaigns.error || links.error || leads.error || posts.error) return null;
 
   return buildBoard(campaigns.data ?? [], links.data ?? [], leads.data ?? [], posts.data ?? []);
+};
+
+export const getGuideData = async () => {
+  const client = getSupabaseServiceClient();
+  if (!client) return null;
+
+  const [campaigns, links] = await Promise.all([
+    client.from("campaigns").select("id, title, asin, niche, status, brief, created_at").limit(200),
+    client.from("tracking_links").select("campaign_id, slug, clicks").limit(5000),
+  ]);
+  if (campaigns.error || links.error) return null;
+
+  return buildGuide(campaigns.data ?? [], links.data ?? []);
 };
 
 export const getLeadSignals = async (email: string, ipHash: string) => {

@@ -32,6 +32,9 @@ const sendWelcomeEmail = async (payload: { email?: string; campaignId?: string; 
     if (link?.slug) ctaUrl = `${process.env.NEXT_PUBLIC_SITE_URL || ""}/go/${link.slug}`;
   }
 
+  // Signups from the gift guide have no campaign; point them back to the guide.
+  if (!payload.campaignId) ctaUrl = `${process.env.NEXT_PUBLIC_SITE_URL || ""}/gifts`;
+
   const email = payload.email.trim().toLowerCase();
 
   if (client) {

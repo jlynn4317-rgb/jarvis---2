@@ -3,8 +3,8 @@ import { updateSession } from "@/utils/supabase/proxy";
 
 // Everything is locked to the owner's login except these. The worker route checks
 // its own CRON_SECRET, and lead pages/capture must stay open to the public.
-const PUBLIC_PATHS = ["/login", "/api/health", "/api/leads", "/api/worker/run", "/unsubscribe", "/api/unsubscribe"];
-const PUBLIC_PREFIXES = ["/go/"];
+const PUBLIC_PATHS = ["/login", "/api/health", "/api/leads", "/api/worker/run", "/unsubscribe", "/api/unsubscribe", "/gifts"];
+const PUBLIC_PREFIXES = ["/go/", "/out/"];
 
 const isPublic = (pathname: string) => PUBLIC_PATHS.includes(pathname) || PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
