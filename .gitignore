@@ -8,5 +8,3 @@ env-local
 env-local.txt
 google-cloud-sdk/
 *.tsbuildinfo
-
-.vercel
