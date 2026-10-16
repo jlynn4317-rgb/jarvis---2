@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getBoardData } from "@/lib/supabase";
 import CopyButton from "./copy-button";
 import HideButton from "./hide-button";
+import RewriteButton from "./rewrite-button";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Link board" };
@@ -37,7 +38,10 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
       <p className="board-back"><Link href="/">&larr; Dashboard</Link></p>
       <h1>Link board</h1>
       <p className="board-sub">Every product you&apos;re promoting, and how each one is doing.</p>
-      <p><Link href="/board/add" className="channel-chip">+ Add products</Link></p>
+      <p className="board-tools">
+        <Link href="/board/add" className="channel-chip">+ Add products</Link>
+        <RewriteButton ids={visible.filter((row) => row.versions > 0).map((row) => row.id)} />
+      </p>
 
       <section className="board-stats" aria-label="Totals">
         <div><span>Products</span><strong>{visible.length}</strong></div>

@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateCampaignCopy } from "@/lib/copy-providers";
 import { enqueueTask } from "@/lib/supabase";
 
-export const TONES = ["Urgent / scarcity-driven", "Playful / relatable", "Trustworthy / educational"];
+export const TONES = ["Warm gift-giving", "Playful / relatable", "Trustworthy / educational"];
 
 // Writes the three tone variants for a campaign, gives each its own tracking link to
 // the same affiliate destination, and schedules the 24h winner check.
