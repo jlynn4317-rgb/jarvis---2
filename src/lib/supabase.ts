@@ -41,6 +41,19 @@ export const getSupabaseServiceClient = () => {
   });
 };
 
+// Supabase occasionally rejects a perfectly good request for a moment ("JWT issued at future",
+// a clock difference between servers, or a brief network blip). Retrying shortly after fixes it,
+// so public pages and signups use this instead of failing or showing an empty page.
+const TRANSIENT = /jwt issued at future|fetch failed|timeout|timed out|econnreset|socket|50[234]/i;
+export const withRetry = async <T extends { error: { message: string } | null }>(run: () => PromiseLike<T>, tries = 3): Promise<T> => {
+  let result = await run();
+  for (let attempt = 1; attempt < tries && result.error && TRANSIENT.test(result.error.message); attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 300 * attempt));
+    result = await run();
+  }
+  return result;
+};
+
 export const upsertProfile = async ({ email, fullName, role = "operator" }: { email: string; fullName?: string; role?: string }) => {
   const client = getSupabaseClient();
   if (!client || !email) {
@@ -160,10 +173,10 @@ export const getBoardData = async () => {
   if (!client) return null;
 
   const [campaigns, links, leads, posts] = await Promise.all([
-    client.from("campaigns").select("id, title, asin, niche, status, created_at").order("created_at", { ascending: false }).limit(200),
-    client.from("tracking_links").select("campaign_id, slug, clicks, copy_variant_id").limit(5000),
-    client.from("leads").select("campaign_id").limit(5000),
-    client.from("social_posts").select("campaign_id, status, posted_at").limit(5000),
+    withRetry(() => client.from("campaigns").select("id, title, asin, niche, status, created_at").order("created_at", { ascending: false }).limit(200)),
+    withRetry(() => client.from("tracking_links").select("campaign_id, slug, clicks, copy_variant_id").limit(5000)),
+    withRetry(() => client.from("leads").select("campaign_id").limit(5000)),
+    withRetry(() => client.from("social_posts").select("campaign_id, status, posted_at").limit(5000)),
   ]);
   if (campaigns.error || links.error || leads.error || posts.error) return null;
 
@@ -175,8 +188,8 @@ export const getGuideData = async () => {
   if (!client) return null;
 
   const [campaigns, links] = await Promise.all([
-    client.from("campaigns").select("id, title, asin, niche, status, brief, created_at").limit(200),
-    client.from("tracking_links").select("campaign_id, slug, clicks").limit(5000),
+    withRetry(() => client.from("campaigns").select("id, title, asin, niche, status, brief, created_at").limit(200)),
+    withRetry(() => client.from("tracking_links").select("campaign_id, slug, clicks").limit(5000)),
   ]);
   if (campaigns.error || links.error) {
     console.error("guide: query failed", campaigns.error?.message, links.error?.message);
@@ -184,8 +197,6 @@ export const getGuideData = async () => {
   }
 
   const items = buildGuide(campaigns.data ?? [], links.data ?? []);
-  const audiences = [...new Set((campaigns.data ?? []).map((row) => `${row.status}/${row.niche}`))].join(" | ");
-  console.log(`guide: ${campaigns.data?.length ?? 0} campaigns, ${links.data?.length ?? 0} links -> ${items.length} items; status/niche seen: ${audiences}`);
   return items;
 };
 
@@ -195,9 +206,9 @@ export const getLeadSignals = async (email: string, ipHash: string) => {
 
   const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const [known, fromIp, total] = await Promise.all([
-    client.from("leads").select("id", { count: "exact", head: true }).eq("email", email),
-    client.from("leads").select("id", { count: "exact", head: true }).eq("ip_hash", ipHash).gte("created_at", since),
-    client.from("leads").select("id", { count: "exact", head: true }).gte("created_at", since),
+    withRetry(() => client.from("leads").select("id", { count: "exact", head: true }).eq("email", email)),
+    withRetry(() => client.from("leads").select("id", { count: "exact", head: true }).eq("ip_hash", ipHash).gte("created_at", since)),
+    withRetry(() => client.from("leads").select("id", { count: "exact", head: true }).gte("created_at", since)),
   ]);
 
   if (known.error || fromIp.error || total.error) return null;
@@ -220,14 +231,16 @@ export const captureLead = async ({
   const client = getSupabaseServiceClient();
   if (!client || !email) return { ok: false, mode: "demo" as const, message: "Supabase not configured." };
 
-  const { data, error } = await client
-    .from("leads")
-    .upsert(
-      { email, campaign_id: campaignId ?? null, tracking_link_id: trackingLinkId ?? null, source: source ?? "landing_page", ip_hash: ipHash ?? null },
-      { onConflict: "email,campaign_id" }
-    )
-    .select("id, email")
-    .single();
+  const { data, error } = await withRetry(() =>
+    client
+      .from("leads")
+      .upsert(
+        { email, campaign_id: campaignId ?? null, tracking_link_id: trackingLinkId ?? null, source: source ?? "landing_page", ip_hash: ipHash ?? null },
+        { onConflict: "email,campaign_id" }
+      )
+      .select("id, email")
+      .single()
+  );
 
   if (error) return { ok: false, mode: "demo" as const, message: error.message };
   return { ok: true, mode: "live" as const, lead: data };
@@ -281,7 +294,7 @@ export const getTrackingLinkBySlug = async (slug: string) => {
   const client = getSupabaseServiceClient();
   if (!client) return null;
 
-  const { data: link } = await client.from("tracking_links").select("*").eq("slug", slug).maybeSingle();
+  const { data: link } = await withRetry(() => client.from("tracking_links").select("*").eq("slug", slug).maybeSingle());
   if (!link) return null;
 
   const [{ data: campaign }, { data: variant }] = await Promise.all([

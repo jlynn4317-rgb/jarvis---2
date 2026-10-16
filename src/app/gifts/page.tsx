@@ -9,7 +9,8 @@ export const metadata = {
 };
 
 export default async function GiftsPage() {
-  const items = (await getGuideData()) ?? [];
+  const loaded = await getGuideData();
+  const items = loaded ?? [];
 
   return (
     <main className="guide-shell">
@@ -20,7 +21,9 @@ export default async function GiftsPage() {
         <p className="guide-disclosure">As an Amazon Associate I earn from qualifying purchases, at no extra cost to you.</p>
       </header>
 
-      {items.length === 0 ? (
+      {loaded === null ? (
+        <p className="board-empty">The guide couldn&apos;t load just now. Please refresh in a moment.</p>
+      ) : items.length === 0 ? (
         <p className="board-empty">New ideas are on the way. Check back soon.</p>
       ) : (
         <ul className="guide-grid">
