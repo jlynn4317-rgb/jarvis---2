@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { sanitizeCampaign } from "@/lib/copy-safety";
 
 export type GeneratedCampaign = {
   pinTitle: string;
@@ -49,12 +50,20 @@ export const buildPrompt = (
   Excluded editors or tools: ${editorExclusions.length > 0 ? editorExclusions.join(", ") : "None"}
   ${tone ? `Required tone for this variant: ${tone}.` : ""}
 
-  Do not suggest workflows, templates, or copy that depend on excluded editors or tools. Keep the strategy platform-neutral and focused on conversion. Do NOT write out any URL, link, or placeholder link anywhere in the output — the application inserts the correct tracking link separately. Append a brief FTC-compliant affiliate disclosure sentence inside pinDescription that does not contain a link.
+  Do not suggest workflows, templates, or copy that depend on excluded editors or tools. Keep the strategy platform-neutral and focused on conversion. Do NOT write out any URL, link, or placeholder link anywhere in the output — the application inserts the correct tracking link separately.
+
+  Honesty rules (strict):
+  - You are recommending a kind of product as an independent reviewer. You do NOT make or sell it, so never say "our", "we" or "us" about the product.
+  - Never claim or imply limited stock, limited time, a sale, a discount, free shipping, a price, a rating, a ranking, an award, a guarantee, or that anything is "top-rated", "best-selling" or "#1". Do not create urgency such as "act fast" or "hurry".
+  - Do not invent specific features, measurements or performance numbers. Describe only what is generally true of this kind of product and why a person might want one.
+  - No health or medical claims.
+  - Plain text only: no asterisks, markdown, emoji walls or ALL CAPS shouting.
+  - Do not write an affiliate disclosure; the application adds it.
 
   Return valid JSON only:
   {
     "pinTitle": "short SEO title",
-    "pinDescription": "high-converting description including a short affiliate disclosure, no links",
+    "pinDescription": "two or three honest sentences, no links, no disclosure",
     "shortVideoHook": "viral 3 second hook",
     "hashtags": ["#tag1", "#tag2", "#tag3"]
   }
@@ -109,16 +118,6 @@ export const generateWithGemini = async (
   return JSON.parse(text);
 };
 
-// Defensive net on top of the prompt instructions: strip anything that looks like a
-// URL out of model output before it ever reaches an email or a post.
-const URL_PATTERN = /\b(?:https?:\/\/|www\.)\S+/gi;
-const stripLinks = (campaign: GeneratedCampaign): GeneratedCampaign => ({
-  ...campaign,
-  pinDescription: campaign.pinDescription?.replace(URL_PATTERN, "").trim(),
-  shortVideoHook: campaign.shortVideoHook?.replace(URL_PATTERN, "").trim(),
-  pinTitle: campaign.pinTitle?.replace(URL_PATTERN, "").trim(),
-});
-
 export const generateCampaignCopy = async (
   title: string,
   cleanAsin: string,
@@ -128,20 +127,20 @@ export const generateCampaignCopy = async (
 
   try {
     const campaign = await generateWithOpenAI(title, cleanAsin, options);
-    if (campaign) return { campaign: stripLinks(campaign), generatedBy: "openai", message: "Campaign generated using OpenAI." };
+    if (campaign) return { campaign: sanitizeCampaign(campaign, title), generatedBy: "openai", message: "Campaign generated using OpenAI." };
   } catch (error) {
     providerErrors.push(error instanceof Error ? error.message : "OpenAI request failed");
   }
 
   try {
     const campaign = await generateWithGemini(title, cleanAsin, options);
-    if (campaign) return { campaign: stripLinks(campaign), generatedBy: "gemini", message: "Campaign generated using Gemini." };
+    if (campaign) return { campaign: sanitizeCampaign(campaign, title), generatedBy: "gemini", message: "Campaign generated using Gemini." };
   } catch (error) {
     providerErrors.push(error instanceof Error ? error.message : "Gemini request failed");
   }
 
   return {
-    campaign: getDemoCampaign(title),
+    campaign: sanitizeCampaign(getDemoCampaign(title), title),
     generatedBy: "demo",
     message: providerErrors.length > 0
       ? `Live AI providers failed. Demo campaign generated locally. ${providerErrors.join(" | ")}`
