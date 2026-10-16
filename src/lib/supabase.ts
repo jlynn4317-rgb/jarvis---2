@@ -178,9 +178,15 @@ export const getGuideData = async () => {
     client.from("campaigns").select("id, title, asin, niche, status, brief, created_at").limit(200),
     client.from("tracking_links").select("campaign_id, slug, clicks").limit(5000),
   ]);
-  if (campaigns.error || links.error) return null;
+  if (campaigns.error || links.error) {
+    console.error("guide: query failed", campaigns.error?.message, links.error?.message);
+    return null;
+  }
 
-  return buildGuide(campaigns.data ?? [], links.data ?? []);
+  const items = buildGuide(campaigns.data ?? [], links.data ?? []);
+  const audiences = [...new Set((campaigns.data ?? []).map((row) => `${row.status}/${row.niche}`))].join(" | ");
+  console.log(`guide: ${campaigns.data?.length ?? 0} campaigns, ${links.data?.length ?? 0} links -> ${items.length} items; status/niche seen: ${audiences}`);
+  return items;
 };
 
 export const getLeadSignals = async (email: string, ipHash: string) => {
