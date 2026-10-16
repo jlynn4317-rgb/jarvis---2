@@ -772,6 +772,21 @@ button { cursor: pointer; }
 .add-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 12px; }
 .add-title { background: #14161b; border: 1px solid var(--line); border-radius: 8px; color: var(--paper); font-size: 14px; padding: 8px 10px; width: 100%; min-width: 220px; }
 .board-table small { color: var(--muted); }
+.guide-shell { margin: 0 auto; max-width: 900px; padding: 40px 18px 60px; }
+.guide-head { margin-bottom: 28px; text-align: center; }
+.guide-head h1 { font-size: 34px; line-height: 1.2; margin: 6px 0 10px; }
+.guide-intro { color: var(--muted); font-size: 16px; margin: 0 auto 8px; max-width: 560px; }
+.guide-disclosure { color: #7d8895; font-size: 12px; margin: 0; }
+.guide-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); list-style: none; margin: 0; padding: 0; }
+.guide-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; gap: 10px; padding: 18px; }
+.guide-card h2 { font-size: 17px; margin: 0; }
+.guide-card p { color: var(--muted); flex: 1; font-size: 14px; line-height: 1.5; margin: 0; }
+.guide-button { background: var(--lime); border-radius: 10px; color: var(--ink); font-size: 14px; font-weight: 700; padding: 11px; text-align: center; text-decoration: none; }
+.guide-signup { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; margin: 28px auto 0; max-width: 460px; padding: 22px; text-align: center; }
+.guide-signup h2 { font-size: 20px; margin: 0 0 6px; }
+.guide-signup p { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
+.guide-thanks { color: var(--lime) !important; }
+.guide-footer { color: #7d8895; font-size: 12px; margin-top: 26px; text-align: center; }
 .board-row-hidden td { opacity: .45; }
 .board-hidden-toggle { margin: 0 0 12px; }
 .board-hidden-toggle a { color: var(--cyan); font-size: 13px; }
