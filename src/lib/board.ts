@@ -14,6 +14,18 @@ export type BoardRow = {
   createdAt: string;
 };
 
+// Products that can be posted (visible, with a link), never-posted first, then the one posted
+// longest ago. Shared by the board's "post this next" and the weekly content pack.
+export const postingOrder = (rows: BoardRow[]) =>
+  rows
+    .filter((row) => row.bestSlug && !row.hidden)
+    .sort((a, b) => {
+      if (!a.lastPostedAt && !b.lastPostedAt) return a.createdAt.localeCompare(b.createdAt);
+      if (!a.lastPostedAt) return -1;
+      if (!b.lastPostedAt) return 1;
+      return a.lastPostedAt.localeCompare(b.lastPostedAt);
+    });
+
 type CampaignInput = { id: string; title: string | null; asin: string | null; niche: string | null; status: string; created_at: string };
 type LinkInput = { campaign_id: string | null; slug: string; clicks: number | null; copy_variant_id: string | null };
 type LeadInput = { campaign_id: string | null };
@@ -46,14 +58,7 @@ export const buildBoard = (campaigns: CampaignInput[], links: LinkInput[], leads
     };
   });
 
-  const next = rows
-    .filter((row) => row.bestSlug && !row.hidden)
-    .sort((a, b) => {
-      if (!a.lastPostedAt && !b.lastPostedAt) return a.createdAt.localeCompare(b.createdAt);
-      if (!a.lastPostedAt) return -1;
-      if (!b.lastPostedAt) return 1;
-      return a.lastPostedAt.localeCompare(b.lastPostedAt);
-    })[0];
+  const next = postingOrder(rows)[0];
 
   return { rows, nextId: next?.id ?? null };
 };

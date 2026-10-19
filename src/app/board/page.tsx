@@ -40,6 +40,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
       <p className="board-sub">Every product you&apos;re promoting, and how each one is doing.</p>
       <p className="board-tools">
         <Link href="/board/add" className="channel-chip">+ Add products</Link>
+        <Link href="/board/pack" className="channel-chip">This week&apos;s pack</Link>
         <RewriteButton ids={visible.filter((row) => row.versions > 0).map((row) => row.id)} />
       </p>
 

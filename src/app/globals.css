@@ -787,6 +787,18 @@ button { cursor: pointer; }
 .guide-signup p { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
 .guide-thanks { color: var(--lime) !important; }
 .guide-footer { color: #7d8895; font-size: 12px; margin-top: 26px; text-align: center; }
+.pack-list { display: flex; flex-direction: column; gap: 18px; margin-bottom: 20px; }
+.pack-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.pack-card header { align-items: baseline; display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; margin-bottom: 10px; }
+.pack-card h2 { font-size: 19px; margin: 0; }
+.pack-tone { color: var(--muted); font-size: 12px; }
+.pack-card details { border-top: 1px solid #1f262e; padding: 10px 0; }
+.pack-card summary { cursor: pointer; font-weight: 600; }
+.pack-block { margin-top: 10px; }
+.pack-block-head { align-items: center; color: var(--muted); display: flex; font-size: 12px; justify-content: space-between; margin-bottom: 4px; }
+.pack-text { background: #0c0e11; border-radius: 8px; color: var(--paper); font-family: inherit; font-size: 13px; line-height: 1.5; margin: 0; overflow-x: auto; padding: 10px 12px; white-space: pre-wrap; word-break: break-word; }
+.pack-posted { align-items: center; border-top: 1px solid #1f262e; color: var(--muted); display: flex; flex-wrap: wrap; font-size: 13px; gap: 8px; padding-top: 12px; }
+.pack-posted-item { align-items: center; display: inline-flex; gap: 6px; }
 .board-row-hidden td { opacity: .45; }
 .board-hidden-toggle { margin: 0 0 12px; }
 .board-hidden-toggle a { color: var(--cyan); font-size: 13px; }

@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { buildBoard } from "@/lib/board";
 import { buildGuide } from "@/lib/guide";
+import { buildPack } from "@/lib/pack";
 
 const isPlaceholder = (value?: string) => !value || value.includes("your_") || value.includes("your-project") || value.includes("example") || value === "";
 
@@ -181,6 +182,27 @@ export const getBoardData = async () => {
   if (campaigns.error || links.error || leads.error || posts.error) return null;
 
   return buildBoard(campaigns.data ?? [], links.data ?? [], leads.data ?? [], posts.data ?? []);
+};
+
+export const getPackData = async (count = 5) => {
+  const client = getSupabaseServiceClient();
+  if (!client) return null;
+
+  const [campaigns, links, leads, posts, variants] = await Promise.all([
+    withRetry(() => client.from("campaigns").select("id, title, asin, niche, status, created_at").order("created_at", { ascending: false }).limit(200)),
+    withRetry(() => client.from("tracking_links").select("campaign_id, slug, clicks, copy_variant_id").limit(5000)),
+    withRetry(() => client.from("leads").select("campaign_id").limit(5000)),
+    withRetry(() => client.from("social_posts").select("campaign_id, channel, status, posted_at").limit(5000)),
+    withRetry(() => client.from("copy_variants").select("id, campaign_id, tone, headline, body, winner").order("created_at", { ascending: true }).limit(5000)),
+  ]);
+  if (campaigns.error || links.error || leads.error || posts.error || variants.error) {
+    console.error("pack: query failed", campaigns.error?.message, links.error?.message, leads.error?.message, posts.error?.message, variants.error?.message);
+    return null;
+  }
+
+  const { rows } = buildBoard(campaigns.data ?? [], links.data ?? [], leads.data ?? [], posts.data ?? []);
+  const origin = (process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/$/, "");
+  return buildPack(rows, variants.data ?? [], links.data ?? [], posts.data ?? [], { count, origin });
 };
 
 export const getGuideData = async () => {
