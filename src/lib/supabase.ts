@@ -205,6 +205,37 @@ export const getPackData = async (count = 5) => {
   return buildPack(rows, variants.data ?? [], links.data ?? [], posts.data ?? [], { count, origin });
 };
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const POSTED_CHANNELS = ["pinterest", "facebook", "instagram", "tiktok", "youtube"];
+
+// Records that a product was posted on a channel (by hand from the pack, or by n8n), so the
+// board's "last posted" moves and the next products rotate in.
+export const recordPostedChannel = async ({ campaignId, variantId, channel, source }: { campaignId: string; variantId?: string | null; channel: string; source: string }) => {
+  if (!UUID_PATTERN.test(campaignId) || (variantId && !UUID_PATTERN.test(variantId)) || !POSTED_CHANNELS.includes(channel)) {
+    return { ok: false as const, status: 400, error: "Invalid request." };
+  }
+
+  const client = getSupabaseServiceClient();
+  if (!client) return { ok: false as const, status: 503, error: "Temporarily unavailable." };
+
+  const { error } = await withRetry(() =>
+    client.from("social_posts").insert({
+      campaign_id: campaignId,
+      copy_variant_id: variantId ?? null,
+      channel,
+      content: { source },
+      status: "posted",
+      posted_at: new Date().toISOString(),
+    })
+  );
+
+  if (error) {
+    const needsUpdate = /social_posts_channel_check|violates check constraint/i.test(error.message);
+    return { ok: false as const, status: 500, error: needsUpdate ? "Run the database update for more channels first." : "Couldn't record that." };
+  }
+  return { ok: true as const };
+};
+
 export const getGuideData = async () => {
   const client = getSupabaseServiceClient();
   if (!client) return null;
