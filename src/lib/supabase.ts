@@ -1,11 +1,14 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { buildBoard } from "@/lib/board";
 
-const isPlaceholder = (value?: string) => !value || value.includes("your_") || value.includes("your-project") || value.includes("example") || value === "";
+const isPlaceholder = (value?: string) => !value || /your[-_]|example/i.test(value);
 
-const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseAnonKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || "";
+// First value that isn't a leftover placeholder, so a stale SUPABASE_SERVICE_ROLE_KEY=your-... can't hide a real SUPABASE_SECRET_KEY.
+const firstReal = (...values: (string | undefined)[]) => values.find((value) => !isPlaceholder(value)) ?? "";
+
+const supabaseUrl = firstReal(process.env.SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_URL);
+const supabaseAnonKey = firstReal(process.env.SUPABASE_PUBLISHABLE_KEY, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, process.env.SUPABASE_ANON_KEY);
+const supabaseServiceKey = firstReal(process.env.SUPABASE_SERVICE_ROLE_KEY, process.env.SUPABASE_SECRET_KEY);
 
 export const getSupabaseConfig = () => ({
   url: supabaseUrl,
